@@ -2,11 +2,12 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Songdetails</title>
+  <title id="title">Songdetails</title>
   <style>
     body {
       font-family: sans-serif;
-      margin: 0; padding: 0;
+      margin: 0;
+      padding: 0;
       height: 100vh;
       display: flex;
       flex-direction: column;
@@ -26,23 +27,22 @@
     }
     .error {
       padding: 2rem;
-      color: darkred;
       text-align: center;
+      color: #900;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <header id="title">Lade Songdetails…</header>
-  <div id="content">
-    <p class="error">Lade Akkorde und Text…</p>
-  </div>
+  <header id="title">Lade Songdaten...</header>
+  <div id="content">Wird geladen...</div>
 
   <script>
     const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
 
     function getQueryParam(name) {
-      const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get(name);
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
     }
 
     async function loadCSV(url) {
@@ -56,38 +56,24 @@
       return data;
     }
 
-    async function showSong() {
-      const id = getQueryParam("id");
-      if (!id) {
-        document.getElementById("content").innerHTML = "<p class='error'>Keine ID angegeben.</p>";
-        return;
-      }
+    const id = getQueryParam("id");
 
-      try {
-        const songs = await loadCSV(csvUrl);
-        const song = songs.find(s => s["Datensatznummer"] === id);
+    loadCSV(csvUrl).then(data => {
+      const song = data.find(s => s["Datensatznummer"] === id);
+      const rawUrl = song && song["Noten"] ? song["Noten"].trim() : "";
+      const url = rawUrl.replace(/^"(.*)"$/, "$1"); // Entfernt Anführungszeichen
 
-        if (!song) {
-          document.getElementById("content").innerHTML = "<p class='error'>Song nicht gefunden.</p>";
-          return;
-        }
-
+      if (!song || !url) {
+        document.getElementById("title").textContent = "Songdetails";
+        document.getElementById("content").innerHTML = '<div class="error">Kein eingebettetes Dokument vorhanden.</div>';
+      } else {
         document.getElementById("title").textContent = `${song["Song"]} – Akkorde & Text`;
-
-        if (song["Noten"] && song["Noten"].includes("docs.google.com/document")) {
-          const embeddedUrl = song["Noten"].replace("/pub", "/pub?embedded=true");
-          document.getElementById("content").innerHTML = `<iframe src="${embeddedUrl}"></iframe>`;
-        } else {
-          document.getElementById("content").innerHTML = "<p class='error'>Kein eingebettetes Dokument vorhanden.</p>";
-        }
-
-      } catch (err) {
-        console.error(err);
-        document.getElementById("content").innerHTML = "<p class='error'>Fehler beim Laden der Daten.</p>";
+        document.getElementById("content").innerHTML = `<iframe src="${url}?embedded=true"></iframe>`;
       }
-    }
-
-    showSong();
+    }).catch(err => {
+      console.error(err);
+      document.getElementById("content").innerHTML = '<div class="error">Fehler beim Laden der Daten.</div>';
+    });
   </script>
 </body>
 </html>
