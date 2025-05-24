@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Songliste</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      max-width: 900px;
+      margin: auto;
+    }
+    input[type="search"] {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1.5rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    .song {
+      border-bottom: 1px solid #eee;
+      padding: 0.75rem 0;
+    }
+    .song h3 {
+      margin: 0 0 0.3rem;
+    }
+    .song small {
+      color: #666;
+    }
+    .link-button {
+      display: inline-block;
+      margin-top: 0.3rem;
+      padding: 0.3rem 0.7rem;
+      background-color: #007acc;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    .link-button:hover {
+      background-color: #005fa3;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Meine Songliste</h1>
+  <input type="search" id="search" placeholder="Suche nach Titel, Interpret, Stimmung..." />
+
+  <div id="songList">Wird geladen...</div>
+
+  <script>
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
+
+    async function loadCSV(url) {
+      const res = await fetch(url);
+      const text = await res.text();
+      const rows = text.trim().split("\n").map(r => r.split(","));
+      const headers = rows[0];
+      const data = rows.slice(1).map(row => Object.fromEntries(row.map((val, i) => [headers[i], val])));
+      return data;
+    }
+
+    function renderList(songs) {
+      const list = document.getElementById("songList");
+      list.innerHTML = "";
+      songs.forEach(song => {
+        const link = song["Noten"] ? `<a class="link-button" href="${song["Noten"]}" target="_blank" rel="noopener noreferrer">Akkorde / Noten</a>` : "";
+        const div = document.createElement("div");
+        div.className = "song";
+        div.innerHTML = `
+          <h3>${song["Song"] || "Unbenannt"} <small>(${song["Interpret"] || "?"})</small></h3>
+          <p>
+            <strong>Sprache:</strong> ${song["Sprache"] || "-"} |
+            <strong>Stimmung:</strong> ${song["Stimmung"] || "-"} |
+            <strong>Kapo:</strong> ${song["Kapo"] || "-"} |
+            <strong>Können:</strong> ${song["Können (1-10)"] || "-"}
+          </p>
+          ${link}
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function setupSearch(songs) {
+      const input = document.getElementById("search");
+      input.addEventListener("input", () => {
+        const q = input.value.toLowerCase();
+        const filtered = songs.filter(song =>
+          Object.values(song).some(val => val && val.toLowerCase().includes(q))
+        );
+        renderList(filtered);
+      });
+    }
+
+    loadCSV(csvUrl).then(songs => {
+      renderList(songs);
+      setupSearch(songs);
+    }).catch(err => {
+      document.getElementById("songList").innerHTML = "<p>Fehler beim Laden der Daten</p>";
+      console.error(err);
+    });
+  </script>
+
+</body>
+</html>
