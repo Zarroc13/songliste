@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Songdetails</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0; padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #007acc;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    iframe {
+      flex-grow: 1;
+      width: 100%;
+      border: none;
+    }
+    .error {
+      padding: 2rem;
+      color: darkred;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header id="title">Lade Songdetails…</header>
+  <div id="content">
+    <p class="error">Lade Akkorde und Text…</p>
+  </div>
+
+  <script>
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
+
+    function getQueryParam(name) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(name);
+    }
+
+    async function loadCSV(url) {
+      const res = await fetch(url);
+      const text = await res.text();
+      const rows = text.trim().split("\n").map(r => r.split(","));
+      const headers = rows[0];
+      const data = rows.slice(1).map(row =>
+        Object.fromEntries(row.map((val, i) => [headers[i], val]))
+      );
+      return data;
+    }
+
+    async function showSong() {
+      const id = getQueryParam("id");
+      if (!id) {
+        document.getElementById("content").innerHTML = "<p class='error'>Keine ID angegeben.</p>";
+        return;
+      }
+
+      try {
+        const songs = await loadCSV(csvUrl);
+        const song = songs.find(s => s["Datensatznummer"] === id);
+
+        if (!song) {
+          document.getElementById("content").innerHTML = "<p class='error'>Song nicht gefunden.</p>";
+          return;
+        }
+
+        document.getElementById("title").textContent = `${song["Song"]} – Akkorde & Text`;
+
+        if (song["Noten"] && song["Noten"].includes("docs.google.com/document")) {
+          const embeddedUrl = song["Noten"].replace("/pub", "/pub?embedded=true");
+          document.getElementById("content").innerHTML = `<iframe src="${embeddedUrl}"></iframe>`;
+        } else {
+          document.getElementById("content").innerHTML = "<p class='error'>Kein eingebettetes Dokument vorhanden.</p>";
+        }
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById("content").innerHTML = "<p class='error'>Fehler beim Laden der Daten.</p>";
+      }
+    }
+
+    showSong();
+  </script>
+</body>
+</html>
