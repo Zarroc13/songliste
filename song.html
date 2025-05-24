@@ -2,12 +2,11 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title id="title">Songdetails</title>
+  <title>Songdetails</title>
   <style>
     body {
       font-family: sans-serif;
-      margin: 0;
-      padding: 0;
+      margin: 0; padding: 0;
       height: 100vh;
       display: flex;
       flex-direction: column;
@@ -25,55 +24,73 @@
       width: 100%;
       border: none;
     }
-    .error {
+    .message {
       padding: 2rem;
       text-align: center;
-      color: #900;
-      font-weight: bold;
+      font-size: 1.2rem;
+      color: #444;
     }
   </style>
 </head>
 <body>
-  <header id="title">Lade Songdaten...</header>
-  <div id="content">Wird geladen...</div>
+  <header id="songTitle">Lade Songdetails...</header>
+  <div id="container">
+    <div class="message">Wird geladen...</div>
+  </div>
 
   <script>
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id");
 
-    function getQueryParam(name) {
-      const params = new URLSearchParams(window.location.search);
-      return params.get(name);
-    }
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
 
     async function loadCSV(url) {
       const res = await fetch(url);
       const text = await res.text();
       const rows = text.trim().split("\n").map(r => r.split(","));
       const headers = rows[0];
-      const data = rows.slice(1).map(row =>
-        Object.fromEntries(row.map((val, i) => [headers[i], val]))
-      );
-      return data;
+      return rows.slice(1).map(row => {
+        const obj = Object.fromEntries(row.map((val, i) => [headers[i], val]));
+        obj["Datensatznummer"] = obj["Datensatznummer"].trim(); // Als String!
+        return obj;
+      });
     }
 
-    const id = getQueryParam("id");
+    function showMessage(text) {
+      const container = document.getElementById("container");
+      container.innerHTML = `<div class="message">${text}</div>`;
+    }
 
-    loadCSV(csvUrl).then(data => {
-      const song = data.find(s => s["Datensatznummer"] === id);
-      const rawUrl = song && song["Noten"] ? song["Noten"].trim() : "";
-      const url = rawUrl.replace(/^"(.*)"$/, "$1"); // Entfernt Anführungszeichen
+    if (!id) {
+      showMessage("Keine ID angegeben.");
+    } else {
+      loadCSV(csvUrl).then(data => {
+        const song = data.find(s => s["Datensatznummer"] === id);
+        if (!song) {
+          showMessage("Kein Song mit dieser ID gefunden.");
+          return;
+        }
 
-      if (!song || !url) {
-        document.getElementById("title").textContent = "Songdetails";
-        document.getElementById("content").innerHTML = '<div class="error">Kein eingebettetes Dokument vorhanden.</div>';
-      } else {
-        document.getElementById("title").textContent = `${song["Song"]} – Akkorde & Text`;
-        document.getElementById("content").innerHTML = `<iframe src="${url}?embedded=true"></iframe>`;
-      }
-    }).catch(err => {
-      console.error(err);
-      document.getElementById("content").innerHTML = '<div class="error">Fehler beim Laden der Daten.</div>';
-    });
+        const title = song["Song"] || "Unbekannter Song";
+        const docUrl = song["Noten"]?.trim();
+
+        document.getElementById("songTitle").textContent = `${title} – Akkorde & Text`;
+
+        if (!docUrl) {
+          showMessage("Kein eingebettetes Dokument vorhanden.");
+        } else {
+          const iframe = document.createElement("iframe");
+          iframe.src = docUrl.includes("embedded=true") ? docUrl : docUrl + "?embedded=true";
+
+          const container = document.getElementById("container");
+          container.innerHTML = "";
+          container.appendChild(iframe);
+        }
+      }).catch(err => {
+        console.error(err);
+        showMessage("Fehler beim Laden der Daten.");
+      });
+    }
   </script>
 </body>
 </html>
