@@ -41,6 +41,13 @@
     .link-button:hover {
       background-color: #005fa3;
     }
+    a.song-link {
+      color: #007acc;
+      text-decoration: none;
+    }
+    a.song-link:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -58,7 +65,9 @@
       const text = await res.text();
       const rows = text.trim().split("\n").map(r => r.split(","));
       const headers = rows[0];
-      const data = rows.slice(1).map(row => Object.fromEntries(row.map((val, i) => [headers[i], val])));
+      const data = rows.slice(1).map(row =>
+        Object.fromEntries(row.map((val, i) => [headers[i], val]))
+      );
       return data;
     }
 
@@ -66,11 +75,13 @@
       const list = document.getElementById("songList");
       list.innerHTML = "";
       songs.forEach(song => {
+        const id = song["Datensatznummer"];
         const link = song["Noten"] ? `<a class="link-button" href="${song["Noten"]}" target="_blank" rel="noopener noreferrer">Akkorde / Noten</a>` : "";
+        const detailsLink = `<a class="song-link" href="song.html?id=${id}">${song["Song"] || "Unbenannt"}</a>`;
         const div = document.createElement("div");
         div.className = "song";
         div.innerHTML = `
-          <h3>${song["Song"] || "Unbenannt"} <small>(${song["Interpret"] || "?"})</small></h3>
+          <h3>${detailsLink} <small>(${song["Interpret"] || "?"})</small></h3>
           <p>
             <strong>Sprache:</strong> ${song["Sprache"] || "-"} |
             <strong>Stimmung:</strong> ${song["Stimmung"] || "-"} |
@@ -105,3 +116,4 @@
 
 </body>
 </html>
+
