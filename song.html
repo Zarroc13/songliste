@@ -2,97 +2,102 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Songdetails</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Songtext</title>
   <style>
     body {
+      margin: 0;
       font-family: sans-serif;
-      margin: 0; padding: 0;
       height: 100vh;
       display: flex;
       flex-direction: column;
     }
+
     header {
       background: #007acc;
       color: white;
       padding: 1rem;
       text-align: center;
-      font-size: 1.5rem;
       font-weight: bold;
+      flex-shrink: 0;
+      font-size: 1.5rem;
     }
-    iframe {
+
+    main {
       flex-grow: 1;
-      width: 100%;
-      border: none;
+      overflow-y: auto;
+      padding: 1rem;
+      white-space: pre-wrap; /* Zeilenumbruch erhalten */
+      font-size: 1rem;
+      line-height: 1.4;
     }
-    .error {
-      padding: 2rem;
-      font-size: 1.2rem;
-      text-align: center;
-      color: #900;
+
+    @media (max-width: 600px) {
+      header {
+        font-size: 1.2rem;
+      }
+      main {
+        font-size: 0.9rem;
+        padding: 0.5rem;
+      }
+    }
+
+    /* Optional: für bessere Lesbarkeit auf kleinen Bildschirmen */
+    main::-webkit-scrollbar {
+      width: 6px;
+    }
+    main::-webkit-scrollbar-thumb {
+      background-color: rgba(0,0,0,0.2);
+      border-radius: 3px;
     }
   </style>
 </head>
 <body>
-  <header id="songHeader">Songdetails</header>
-  <div id="error" class="error" style="display:none;"></div>
-  <iframe id="iframe" style="display:none;"></iframe>
+  <header id="song-title">Lade Song…</header>
+  <main id="song-text">Bitte warten...</main>
 
   <script>
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
-
-    function getID() {
-      const params = new URLSearchParams(window.location.search);
-      return params.get("id");
+    // Funktion zum Auslesen von URL-Parametern
+    function getQueryParam(param) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(param);
     }
 
-    async function loadCSV(url) {
-      const res = await fetch(url);
-      const text = await res.text();
-      const rows = text.trim().split("\n").map(r => r.split(","));
-      const headers = rows[0].map(h => h.trim());
-      return rows.slice(1).map(row =>
-        Object.fromEntries(row.map((val, i) => [headers[i], val.trim()]))
-      );
+    // Hole die ID aus der URL
+    const id = getQueryParam('id');
+    const titleEl = document.getElementById('song-title');
+    const textEl = document.getElementById('song-text');
+
+    if (!id) {
+      titleEl.textContent = 'Keine Song-ID angegeben';
+      textEl.textContent = 'Bitte gib in der URL eine ID an, z.B. ?id=1';
+    } else {
+      // Pfad zur Datei (z.B. songs/1.txt)
+      const filePath = `songs/${id}.txt`;
+
+      // Songtext laden
+      fetch(filePath)
+        .then(response => {
+          if (!response.ok) throw new Error('Datei nicht gefunden');
+          return response.text();
+        })
+        .then(text => {
+          // Optional: Titel aus erster Zeile extrahieren
+          const lines = text.split('\n');
+          if (lines.length > 0) {
+            titleEl.textContent = lines[0].trim();
+            // Restlichen Text ohne Titel anzeigen
+            textEl.textContent = lines.slice(1).join('\n').trim();
+          } else {
+            titleEl.textContent = `Song ID ${id}`;
+            textEl.textContent = text;
+          }
+        })
+        .catch(err => {
+          titleEl.textContent = `Fehler beim Laden der Datei für Song ID ${id}`;
+          textEl.textContent = err.message;
+        });
     }
-
-    async function init() {
-      const id = getID();
-      if (!id) {
-        showError("Keine ID angegeben.");
-        return;
-      }
-
-      try {
-        const data = await loadCSV(csvUrl);
-        const song = data.find(d => d["Datensatznummer"] === id);
-
-        if (!song) {
-          showError("Kein Song mit dieser ID gefunden.");
-          return;
-        }
-
-        document.getElementById("songHeader").textContent = `${song["Song"] || "Unbekannter Song"} – Akkorde & Text`;
-
-        if (!song["Noten"]) {
-          showError("Kein eingebettetes Dokument vorhanden.");
-          return;
-        }
-
-        document.getElementById("iframe").src = song["Noten"] + "?embedded=true";
-        document.getElementById("iframe").style.display = "block";
-      } catch (e) {
-        showError("Fehler beim Laden der Daten.");
-        console.error(e);
-      }
-    }
-
-    function showError(message) {
-      const errorDiv = document.getElementById("error");
-      errorDiv.textContent = message;
-      errorDiv.style.display = "block";
-    }
-
-    init();
   </script>
 </body>
 </html>
