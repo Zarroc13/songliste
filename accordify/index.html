@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Ultimate Guitar Akkord-Konverter Demo</title>
+</head>
+<body>
+  <h1>Ultimate Guitar Akkord-Konverter (Demo)</h1>
+  <p>
+    Füge hier deinen Ultimate Guitar Text ein:
+  </p>
+  <textarea id="input" rows="10" cols="60" placeholder="Kopiere hier den Songtext mit Akkorden hinein"></textarea>
+  <br>
+  <button onclick="convert()">Formatieren</button>
+  <h2>Ergebnis:</h2>
+  <pre id="output"></pre>
+  <script>
+    function convert() {
+      // Sehr einfache Zeilenweise-Konvertierung: Chord-Zeilen werden in die nächste Lyriczeile eingefügt
+      const input = document.getElementById('input').value.split('\n');
+      let result = [];
+      for (let i = 0; i < input.length; i++) {
+        const line = input[i];
+        // Wenn die Zeile Akkorde (nur Großbuchstaben, #, b, Ziffern, Leerzeichen) enthält und keine Satzzeichen/Wörter, dann als Chordzeile behandeln
+        if (/^(\s*[A-G][#b]?[a-zA-Z0-9\/]*\s*)+$/.test(line.trim())) {
+          // Füge Akkorde als [CHORD] an die nächste Zeile (falls vorhanden)
+          const chords = line.trim().split(/\s+/);
+          let lyricLine = input[i+1] || "";
+          let offset = 0;
+          for (const chord of chords) {
+            lyricLine = '[' + chord + ']' + lyricLine;
+          }
+          result.push(lyricLine);
+          i++; // Skip next line, da schon verarbeitet
+        } else {
+          result.push(line);
+        }
+      }
+      document.getElementById('output').textContent = result.join('\n');
+    }
+  </script>
+</body>
+</html>
