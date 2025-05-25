@@ -2,108 +2,177 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Songliste</title>
+  <title>Meine Songliste</title>
   <style>
     body {
-      font-family: sans-serif;
-      padding: 2rem;
-      background: #f8f8f8;
+      font-family: Arial, sans-serif;
+      margin: 0; padding: 0; 
+      display: flex; 
+      flex-direction: column; 
+      min-height: 100vh;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    th, td {
-      padding: 0.5rem;
-      border: 1px solid #ccc;
-      text-align: left;
-    }
-    th {
+    header {
       background: #007acc;
       color: white;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: bold;
     }
-    a {
-      color: #007acc;
-      text-decoration: none;
+    #songlist, #songdetail {
+      padding: 1rem;
+      flex-grow: 1;
+      overflow-y: auto;
     }
-    a:hover {
-      text-decoration: underline;
+    #songlist table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #songlist th, #songlist td {
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      text-align: left;
+    }
+    #songlist tr:hover {
+      background-color: #eef;
+      cursor: pointer;
+    }
+    #songdetail {
+      display: none;
+      white-space: pre-wrap; /* für Zeilenumbrüche im Songtext */
+      font-family: monospace; /* für Akkorde im Text */
+    }
+    button#backBtn {
+      margin-bottom: 1rem;
+      padding: 0.5rem 1rem;
+      background-color: #007acc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button#backBtn:hover {
+      background-color: #005a9e;
+    }
+    /* Responsive */
+    @media (max-width: 600px) {
+      header {
+        font-size: 1.2rem;
+      }
+      #songlist th, #songlist td {
+        font-size: 0.9rem;
+      }
+      button#backBtn {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>Meine Songliste</h1>
-  <div id="table-container">Wird geladen...</div>
-
+  <header>Songliste</header>
+  
+  <div id="songlist">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Song</th><th>Interpret</th></tr>
+      </thead>
+      <tbody id="songTableBody">
+        <!-- Dynamisch befüllt -->
+      </tbody>
+    </table>
+  </div>
+  
+  <div id="songdetail">
+    <button id="backBtn">Zurück zur Liste</button>
+    <h2 id="songTitle"></h2>
+    <pre id="songText">Lade...</pre>
+  </div>
+  
   <script>
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
+    // Beispiel-Songliste, die du auch per fetch von JSON laden kannst
+    const songs = [
+      { id: 1, title: "The Bard's Song", artist: "Blind Guardian" },
+      { id: 2, title: "An irgendeinem Tag wird die Welt…", artist: "Kapelle Petra" },
+      { id: 3, title: "The Cave", artist: "Mumford and Sons" }
+      // mehr Songs hier...
+    ];
 
-    async function loadCSV(url) {
-      const res = await fetch(url);
-      const text = await res.text();
-      const rows = text.trim().split("\n").map(r => r.split(","));
-      const headers = rows[0];
-      return rows.slice(1).map(row => {
-        const obj = Object.fromEntries(row.map((val, i) => [headers[i], val.trim()]));
-        obj["Datensatznummer"] = obj["Datensatznummer"].trim(); // Wichtig!
-        return obj;
+    const songListEl = document.getElementById('songlist');
+    const songTableBody = document.getElementById('songTableBody');
+    const songDetailEl = document.getElementById('songdetail');
+    const backBtn = document.getElementById('backBtn');
+    const songTitleEl = document.getElementById('songTitle');
+    const songTextEl = document.getElementById('songText');
+
+    // Liste füllen
+    function fillSongList() {
+      songTableBody.innerHTML = '';
+      songs.forEach(song => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${song.id}</td><td>${song.title}</td><td>${song.artist}</td>`;
+        tr.addEventListener('click', () => loadSong(song.id));
+        songTableBody.appendChild(tr);
       });
     }
 
-    function buildTable(data) {
-      const container = document.getElementById("table-container");
-      if (data.length === 0) {
-        container.innerHTML = "<p>Keine Daten gefunden.</p>";
-        return;
-      }
+    // Song laden und anzeigen
+    function loadSong(id) {
+      const song = songs.find(s => s.id === id);
+      if (!song) return alert('Song nicht gefunden.');
 
-      const table = document.createElement("table");
-      const thead = document.createElement("thead");
-      const tbody = document.createElement("tbody");
+      // UI umschalten
+      songListEl.style.display = 'none';
+      songDetailEl.style.display = 'block';
+      songTitleEl.textContent = `${song.title} – ${song.artist}`;
+      songTextEl.textContent = 'Lade...';
 
-      // Tabellenkopf
-      const headerRow = document.createElement("tr");
-      ["Song", "Interpret", "Sprache", "Können", "Kapo"].forEach(key => {
-        const th = document.createElement("th");
-        th.textContent = key;
-        headerRow.appendChild(th);
-      });
-      thead.appendChild(headerRow);
+      // URL-Hash setzen
+      location.hash = 'song=' + id;
 
-      // Datenzeilen
-      data.forEach(row => {
-        const tr = document.createElement("tr");
-
-        const songCell = document.createElement("td");
-        const link = document.createElement("a");
-        link.href = `song.html?id=${row["Datensatznummer"]}`;
-        link.textContent = row["Song"];
-        songCell.appendChild(link);
-        tr.appendChild(songCell);
-
-        ["Interpret", "Sprache", "Können (1-10)", "Kapo"].forEach(key => {
-          const td = document.createElement("td");
-          td.textContent = row[key] || "";
-          tr.appendChild(td);
+      // Songtext laden (im Ordner "songs" => "1.txt" etc.)
+      fetch(`songs/${id}.txt`)
+        .then(response => {
+          if (!response.ok) throw new Error('Datei nicht gefunden.');
+          return response.text();
+        })
+        .then(text => {
+          songTextEl.textContent = text;
+        })
+        .catch(err => {
+          songTextEl.textContent = 'Fehler beim Laden des Songs: ' + err.message;
         });
-
-        tbody.appendChild(tr);
-      });
-
-      table.appendChild(thead);
-      table.appendChild(tbody);
-      container.innerHTML = "";
-      container.appendChild(table);
     }
 
-    loadCSV(csvUrl)
-      .then(buildTable)
-      .catch(err => {
-        console.error(err);
-        document.getElementById("table-container").textContent = "Fehler beim Laden.";
-      });
+    // Zurück zur Liste
+    backBtn.addEventListener('click', () => {
+      songDetailEl.style.display = 'none';
+      songListEl.style.display = 'block';
+      songTextEl.textContent = '';
+      songTitleEl.textContent = '';
+      location.hash = '';
+    });
+
+    // Beim Laden prüfen, ob URL-Hash einen Song vorgibt
+    function checkHash() {
+      if (location.hash.startsWith('#song=')) {
+        const id = parseInt(location.hash.replace('#song=', ''), 10);
+        if (!isNaN(id)) {
+          loadSong(id);
+          return;
+        }
+      }
+      // Default: Liste anzeigen
+      songDetailEl.style.display = 'none';
+      songListEl.style.display = 'block';
+    }
+
+    // Initialisieren
+    fillSongList();
+    checkHash();
+
+    // Wenn Hash sich ändert (Back/Forward Browser Buttons)
+    window.addEventListener('hashchange', checkHash);
+
   </script>
 </body>
 </html>
