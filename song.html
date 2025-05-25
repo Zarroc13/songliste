@@ -152,11 +152,11 @@
 
     function computeScrollSpeed(val) {
       if (isMobile()) {
-        // Mobil: 1 → 0.2px, 100 → 3.5px
-        return 0.2 + (val/100)*3.3;
+        // Mobil: 1 → 0.012px, 100 → 0.050px (langsamer Bereich)
+        return 0.012 + (val/100)*0.038;
       } else {
-        // Desktop: 1 → 0.05px, 100 → 3px (angepasst für sehr langsames Minimum)
-        return 0.05 + (val/100)*2.95;
+        // Desktop: 1 → 0.016px, 100 → 0.060px (sehr langsam bis langsam)
+        return 0.016 + (val/100)*0.044;
       }
     }
 
