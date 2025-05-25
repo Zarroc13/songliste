@@ -145,24 +145,33 @@
 
     let autoscrollActive = false;
     let autoscrollTimer = null;
-    let autoscrollTimerType = null; // "timeout" oder "raf"
     let defaultSpeedValue = 3; // Startwert, kann aus Sheet kommen
     let speedValue = 3; // aktuell (1-10)
     let scrollSpeed = 1; // px/frame, berechnet aus speedValue
+    let scrollDelay = 100; // ms, berechnet aus speedValue
 
-    // Skaliert für Werte 1-10
-    function computeScrollSpeed(val) {
+    // Schrittweite und Delay je nach Stufe (1-10) – Werte ggf. anpassen!
+    function computeScrollSettings(val) {
+      // Skalen für Mobil und Desktop getrennt
+      let stepMin, stepMax, delayMin, delayMax;
       if (isMobile()) {
-        // Mobil: 1 → 0.1px, 10 → 3px
-        return 0.1 + ((val - 1) / 9) * (3 - 0.1);
+        stepMin = 0.2; stepMax = 3.0;
+        delayMin = 30; delayMax = 300;
       } else {
-        // Desktop: 1 → 0.1px, 10 → 6px
-        return 0.1 + ((val - 1) / 9) * (6 - 0.1);
+        stepMin = 0.2; stepMax = 6.0;
+        delayMin = 30; delayMax = 300;
       }
+      // Linear interpolieren
+      let t = (val - 1) / 9;
+      let step = stepMin + t * (stepMax - stepMin);
+      let delay = delayMax - t * (delayMax - delayMin);
+      return { step, delay };
     }
 
     function updateSpeedDisplay() {
-      scrollSpeed = computeScrollSpeed(speedValue);
+      const settings = computeScrollSettings(speedValue);
+      scrollSpeed = settings.step;
+      scrollDelay = settings.delay;
       speedDisplay.textContent = `Geschwindigkeit: ${speedValue}`;
     }
 
@@ -176,8 +185,7 @@
         if (!autoscrollActive) return;
         textEl.scrollTop += scrollSpeed;
         if (textEl.scrollTop + textEl.clientHeight < textEl.scrollHeight) {
-          autoscrollTimerType = "raf";
-          autoscrollTimer = requestAnimationFrame(scrollStep);
+          autoscrollTimer = setTimeout(scrollStep, scrollDelay);
         } else {
           stopAutoscroll();
         }
@@ -190,14 +198,9 @@
       autoscrollBtn.textContent = "Autoscroll starten";
       autoscrollBtn.classList.remove("active");
       if (autoscrollTimer) {
-        if (autoscrollTimerType === "timeout") {
-          clearTimeout(autoscrollTimer);
-        } else if (autoscrollTimerType === "raf") {
-          cancelAnimationFrame(autoscrollTimer);
-        }
+        clearTimeout(autoscrollTimer);
       }
       autoscrollTimer = null;
-      autoscrollTimerType = null;
     }
 
     autoscrollBtn.addEventListener('click', () => {
