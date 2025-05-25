@@ -146,17 +146,18 @@
     let autoscrollActive = false;
     let autoscrollTimer = null;
     let autoscrollTimerType = null; // "timeout" oder "raf"
-    let defaultSpeedValue = 20; // aus Sheet, 1-100
-    let speedValue = 20; // aktuell (1-100)
+    let defaultSpeedValue = 3; // Startwert, kann aus Sheet kommen
+    let speedValue = 3; // aktuell (1-10)
     let scrollSpeed = 1; // px/frame, berechnet aus speedValue
 
+    // Skaliert für Werte 1-10
     function computeScrollSpeed(val) {
       if (isMobile()) {
-        // Mobil: 1 → 0.1px, 100 → 3px
-        return 0.1 + (val/100)*2.9;
+        // Mobil: 1 → 0.1px, 10 → 3px
+        return 0.1 + ((val - 1) / 9) * (3 - 0.1);
       } else {
-        // Desktop: 1 → 0.1px, 100 → 6px
-        return 0.1 + (val/100)*5.9;
+        // Desktop: 1 → 0.1px, 10 → 6px
+        return 0.1 + ((val - 1) / 9) * (6 - 0.1);
       }
     }
 
@@ -171,25 +172,12 @@
       autoscrollBtn.textContent = "Autoscroll stoppen";
       autoscrollBtn.classList.add("active");
 
-      function getDelayForLowSpeed(val) {
-        // Stufe 1=400ms, 2=360ms, ..., 10=40ms, ab 11=0ms
-        if (val < 11) return 400 - (val - 1) * 40;
-        return 0;
-      }
-
       function scrollStep() {
         if (!autoscrollActive) return;
-        let usedSpeed = speedValue < 11 ? computeScrollSpeed(11) : computeScrollSpeed(speedValue);
-        textEl.scrollTop += usedSpeed;
+        textEl.scrollTop += scrollSpeed;
         if (textEl.scrollTop + textEl.clientHeight < textEl.scrollHeight) {
-          let delay = getDelayForLowSpeed(speedValue);
-          if (delay > 0) {
-            autoscrollTimerType = "timeout";
-            autoscrollTimer = setTimeout(scrollStep, delay);
-          } else {
-            autoscrollTimerType = "raf";
-            autoscrollTimer = requestAnimationFrame(scrollStep);
-          }
+          autoscrollTimerType = "raf";
+          autoscrollTimer = requestAnimationFrame(scrollStep);
         } else {
           stopAutoscroll();
         }
@@ -221,16 +209,14 @@
     });
 
     speedPlusBtn.addEventListener('click', () => {
-      if (speedValue < 100) {
-        speedValue += 5;
-        if (speedValue > 100) speedValue = 100;
+      if (speedValue < 10) {
+        speedValue += 1;
         updateSpeedDisplay();
       }
     });
     speedMinusBtn.addEventListener('click', () => {
       if (speedValue > 1) {
-        speedValue -= 5;
-        if (speedValue < 1) speedValue = 1;
+        speedValue -= 1;
         updateSpeedDisplay();
       }
     });
@@ -254,13 +240,13 @@
           const result = Papa.parse(csvText, { header: true, skipEmptyLines: true });
           const song = result.data.find(obj => (obj["Datensatznummer"] || "").trim() === id);
           if (song && song["AutoscrollSpeed"]) {
-            let sheetVal = parseInt(song["AutoscrollSpeed"],10);
-            if (isNaN(sheetVal) || sheetVal < 1 || sheetVal > 100) sheetVal = 20;
+            let sheetVal = parseInt(song["AutoscrollSpeed"], 10);
+            if (isNaN(sheetVal) || sheetVal < 1 || sheetVal > 10) sheetVal = 3;
             defaultSpeedValue = sheetVal;
             speedValue = sheetVal;
           } else {
-            defaultSpeedValue = 20;
-            speedValue = 20;
+            defaultSpeedValue = 3;
+            speedValue = 3;
           }
           updateSpeedDisplay();
           const filePath = `songs/${id}.txt`;
