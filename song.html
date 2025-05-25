@@ -70,13 +70,10 @@
   <a href="index.html" class="backlink">&larr; Zurück zur Songliste</a>
   <main id="song-text">Bitte warten...</main>
   <script>
-    // Akkorde im Text hervorheben (einfache Variante)
     function highlightChords(text) {
-      // Akkorde: [C], [G], [Am], [Dm7], etc.
       return text.replace(/\[([A-G][#b]?m?(?:add|dim|aug|sus|maj|min)?\d*)\]/g, '<span class="chord">[$1]</span>');
     }
 
-    // Hilfsfunktion für URL-Parameter
     function getQueryParam(param) {
       const urlParams = new URLSearchParams(window.location.search);
       return urlParams.get(param);
@@ -95,15 +92,13 @@
       fetch(filePath)
         .then(response => {
           if (!response.ok) {
-            // Songtext nicht gefunden -> zu ultimate.html weiterleiten
             window.location.href = "ultimate.html?id=" + encodeURIComponent(id);
-            return null;
+            return Promise.reject('redirect');
           }
           return response.text();
         })
         .then(text => {
-          if (!text) return; // Falls wegen Weiterleitung: nichts mehr machen
-          // Titel aus erster Zeile, Rest als Songtext
+          if (!text) return;
           const lines = text.split('\n');
           if (lines.length > 0) {
             titleEl.textContent = lines[0].trim();
@@ -115,7 +110,10 @@
           }
         })
         .catch(err => {
-          // Optional: Netzwerkausfälle oder andere Fehler behandeln
+          if (err !== 'redirect') {
+            titleEl.textContent = "Fehler";
+            textEl.textContent = "Song konnte nicht geladen werden.";
+          }
         });
     }
   </script>
