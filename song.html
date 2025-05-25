@@ -130,7 +130,6 @@
     }
 
     function isMobile() {
-      // Einfache Mobil-Erkennung (iOS, Android, etc.)
       return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 
@@ -152,11 +151,11 @@
 
     function computeScrollSpeed(val) {
       if (isMobile()) {
-        // Mobil: 1 → 0.012px, 100 → 0.050px (langsamer Bereich)
-        return 0.012 + (val/100)*0.038;
+        // Mobil: 1 → 0.25px, 100 → 3px
+        return 0.25 + (val/100)*2.75;
       } else {
-        // Desktop: 1 → 0.016px, 100 → 0.060px (sehr langsam bis langsam)
-        return 0.016 + (val/100)*0.044;
+        // Desktop: 1 → 0.5px, 100 → 6px
+        return 0.5 + (val/100)*5.5;
       }
     }
 
