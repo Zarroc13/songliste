@@ -2,31 +2,30 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Ultimate Guitar Akkord-Konverter (Akkorde vor Wörter, sauberer Zeilenbeginn)</title>
+  <title>Ultimate Guitar Akkord-Konverter (positionsbasiert, saubere Zeilen)</title>
   <style>
     body { font-family: Arial, sans-serif; background: #f8f8fc; color: #222; margin: 0; padding: 2em; }
     h1 { color: #2378b6; }
     textarea { width: 100%; font-family: "Courier New", Courier, monospace; margin-bottom: 1em; background: #fff; border: 1px solid #bbb; padding: 0.5em; box-sizing: border-box; resize: vertical; }
     button { background: #2378b6; color: #fff; border: none; padding: 0.5em 1.2em; margin: 0.2em; border-radius: 4px; cursor: pointer; }
-    button:disabled { background: #a0a0a0; cursor: default; }
     label { font-weight: bold; }
   </style>
 </head>
 <body>
-  <h1>Ultimate Guitar Akkord-Konverter (Akkorde direkt vor Wörter, saubere Zeilen)</h1>
+  <h1>Ultimate Guitar Akkord-Konverter (positionsbasiert, saubere Zeilen)</h1>
   <p>
-    Füge deinen Ultimate-Guitar-Text (inklusive Akkordzeilen) hier ein und klicke auf „Formatieren“.<br>
-    Akkorde werden direkt vor die passenden Wörter gesetzt, und alle Zeilen beginnen ohne Leerzeichen.
+    Füge deinen Ultimate-Guitar-Text (inklusive Akkordzeilen) ein und klicke auf „Formatieren“.<br>
+    Akkorde werden exakt an die Positionen eingesetzt, wie sie im Original stehen. Alle Zeilen beginnen ohne Leerzeichen.
   </p>
   <label for="input">Eingabe:</label>
-  <textarea id="input" rows="16" cols="80" placeholder="Hier Ultimate Guitar Text einfügen..."></textarea>
+  <textarea id="input" rows="20" cols="80" placeholder="Hier Ultimate Guitar Text einfügen..."></textarea>
   <br>
   <button onclick="convert()">Formatieren</button>
   <button onclick="downloadTxt()">Als TXT herunterladen</button>
   <h2>Ergebnis (bearbeitbar):</h2>
-  <textarea id="output" rows="16" cols="80" style="width:100%"></textarea>
+  <textarea id="output" rows="20" cols="80" style="width:100%"></textarea>
   <script>
-    // Hilfsfunktion: Bestimme, ob eine Zeile eine Akkordzeile ist
+    // Prüft, ob eine Zeile eine Akkordzeile ist (wie vorher)
     function isChordLine(line) {
       if (!line.trim()) return false;
       const words = line.trim().split(/\s+/);
@@ -37,23 +36,23 @@
       return chordCount > 0 && chordCount >= words.length * 0.7;
     }
 
-    // Akkorde werden einfach vor die nächsten Wörter der Textzeile gesetzt
-    function mergeChordsToLyrics(chordLine, lyricLine) {
-      const chordRegex = /[A-G][#b]?(?:m|maj|min|sus|dim|aug|add)?\d*(?:\/[A-G][#b]?)?[*]*/g;
-      const chords = chordLine.match(chordRegex) || [];
-      const words = lyricLine.split(/(\s+)/);
-      let result = '';
-      let chordIdx = 0;
-      for (let i = 0; i < words.length; i++) {
-        if (words[i].trim().length > 0 && chordIdx < chords.length) {
-          result += `[${chords[chordIdx]}]` + words[i];
-          chordIdx++;
-        } else {
-          result += words[i];
+    // Akkorde werden an die exakten Positionen der Akkordzeile im Text gesetzt
+    function mergeChordsByPosition(chordLine, lyricLine) {
+      // Finde alle Akkorde mit ihrer Position
+      const regex = /([A-G][#b]?(?:m|maj|min|sus|dim|aug|add)?\d*(?:\/[A-G][#b]?)?[*]*)/g;
+      let match;
+      let inserts = [];
+      while ((match = regex.exec(chordLine)) !== null) {
+        if (match[1].trim() !== "") {
+          inserts.push({pos: match.index, chord: match[1]});
         }
       }
-      for (; chordIdx < chords.length; chordIdx++) {
-        result += `[${chords[chordIdx]}]`;
+      // Einfügen von hinten nach vorne
+      let result = lyricLine;
+      for (let j = inserts.length - 1; j >= 0; j--) {
+        let idx = inserts[j].pos;
+        if (idx > result.length) idx = result.length;
+        result = result.slice(0, idx) + `[${inserts[j].chord}]` + result.slice(idx);
       }
       return result;
     }
@@ -65,7 +64,7 @@
       while (i < lines.length) {
         const line = lines[i];
         if (isChordLine(line) && i + 1 < lines.length) {
-          const merged = mergeChordsToLyrics(line, lines[i + 1]);
+          const merged = mergeChordsByPosition(line, lines[i + 1]);
           output.push(merged);
           i += 2;
         } else {
