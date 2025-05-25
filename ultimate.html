@@ -17,6 +17,8 @@
       padding: 2rem;
       box-shadow: 0 0 10px rgba(0,0,0,0.08);
       border-radius: 10px;
+      min-width: 280px;
+      max-width: 420px;
     }
     a.ug-link {
       display: inline-block;
@@ -28,22 +30,38 @@
       border-radius: 5px;
       text-decoration: none;
       font-weight: bold;
+      transition: background 0.2s;
     }
     a.ug-link:hover { background: #ffe398; }
+    .song-title {
+      font-weight: bold;
+      font-size: 1.2rem;
+      margin: 1.2rem 0 0.5rem 0;
+      color: #086108;
+    }
+    .desc {
+      color: #444;
+      font-size: 1.05rem;
+    }
+    .back {
+      margin-top: 2.5rem;
+      display: block;
+      color: #007acc;
+      text-decoration: none;
+      font-size: 1rem;
+    }
+    .back:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
   <div class="link-box">
-    <h1 id="title">Suche auf Ultimate Guitar</h1>
-    <p id="desc">Du kannst nach diesem Song auf Ultimate Guitar suchen:</p>
-    <a id="ug-link" class="ug-link" href="#" target="_blank">Ultimate Guitar durchsuchen</a>
-    <div style="margin-top:2rem;">
-      <a href="index.html" style="color:#007acc;">&#8592; Zurück zur Songliste</a>
-    </div>
+    <div class="song-title" id="title">Song wird gesucht…</div>
+    <div class="desc" id="desc">Du kannst nach diesem Song auf Ultimate Guitar suchen:</div>
+    <a id="ug-link" class="ug-link" href="#" target="_blank" style="display:none;">Ultimate Guitar durchsuchen</a>
+    <a href="index.html" class="back">&#8592; Zurück zur Songliste</a>
   </div>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script>
-    // Hole die Song-ID aus der URL
     function getQueryParam(param) {
       const urlParams = new URLSearchParams(window.location.search);
       return urlParams.get(param);
@@ -52,22 +70,35 @@
     const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
 
     async function main() {
-      if (!id) return;
-      const res = await fetch(csvUrl);
-      const text = await res.text();
-      const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-      const song = result.data.find(obj => (obj["Datensatznummer"] || "").trim() === id);
-      if (song) {
-        const songTitle = (song["Song"] || "").trim();
-        const interpret = (song["Interpret"] || "").trim();
-        document.getElementById("title").textContent = "Ultimate Guitar Suche: " + songTitle;
-        let query = songTitle;
-        if (interpret) query += " " + interpret;
-        const ugUrl = "https://www.ultimate-guitar.com/search.php?search_type=title&value=" + encodeURIComponent(query);
-        document.getElementById("ug-link").href = ugUrl;
-        document.getElementById("ug-link").textContent = "Ultimate Guitar nach \""+query+"\" durchsuchen";
-      } else {
-        document.getElementById("desc").textContent = "Song nicht gefunden.";
+      if (!id) {
+        document.getElementById("title").textContent = "Song nicht gefunden";
+        document.getElementById("desc").textContent = "Kein Song ausgewählt.";
+        return;
+      }
+      try {
+        const res = await fetch(csvUrl);
+        const text = await res.text();
+        const result = Papa.parse(text, { header: true, skipEmptyLines: true });
+        const song = result.data.find(obj => (obj["Datensatznummer"] || "").trim() === id);
+        if (song) {
+          const songTitle = (song["Song"] || "").trim();
+          const interpret = (song["Interpret"] || "").trim();
+          document.getElementById("title").textContent = songTitle || "Song ohne Titel";
+          let query = songTitle;
+          if (interpret) query += " " + interpret;
+          const ugUrl = "https://www.ultimate-guitar.com/search.php?search_type=title&value=" + encodeURIComponent(query);
+          const ugLink = document.getElementById("ug-link");
+          ugLink.href = ugUrl;
+          ugLink.textContent = "Ultimate Guitar nach \""+query+"\" durchsuchen";
+          ugLink.style.display = "inline-block";
+        } else {
+          document.getElementById("title").textContent = "Song nicht gefunden";
+          document.getElementById("desc").textContent = "Der Song konnte in der Datenbank nicht gefunden werden.";
+          document.getElementById("ug-link").style.display = "none";
+        }
+      } catch (e) {
+        document.getElementById("title").textContent = "Fehler";
+        document.getElementById("desc").textContent = "Beim Laden der Songdaten ist ein Fehler aufgetreten.";
         document.getElementById("ug-link").style.display = "none";
       }
     }
