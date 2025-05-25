@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Songliste</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
     body {
       font-family: sans-serif;
@@ -79,12 +80,14 @@
     async function loadCSV(url) {
       const res = await fetch(url);
       const text = await res.text();
-      const rows = text.trim().split("\n").map(r => r.split(","));
-      const headers = rows[0];
-      return rows.slice(1).map(row => {
-        const obj = Object.fromEntries(row.map((val, i) => [headers[i], val.trim()]));
-        obj["Datensatznummer"] = obj["Datensatznummer"].trim();
+      const result = Papa.parse(text, { header: true, skipEmptyLines: true });
+      return result.data.map(obj => {
+        obj["Datensatznummer"] = (obj["Datensatznummer"] || "").trim();
         obj["Können (1-10)"] = parseInt(obj["Können (1-10)"], 10) || 0;
+        obj["Song"] = (obj["Song"] || "").trim();
+        obj["Interpret"] = (obj["Interpret"] || "").trim();
+        obj["Sprache"] = (obj["Sprache"] || "").trim();
+        obj["Kapo"] = (obj["Kapo"] || "").trim();
         return obj;
       });
     }
@@ -94,7 +97,6 @@
       return [...data].sort((a, b) => {
         let aVal = a[key] || "";
         let bVal = b[key] || "";
-        // Numerisch bei Können, sonst alphabetisch
         if (key === "Können (1-10)") {
           return dir * (aVal - bVal);
         }
@@ -174,7 +176,6 @@
       buildTable(filtered);
     }
 
-    // Filter-Buttons und Suche
     document.getElementById("search-input").addEventListener("input", filterAndDisplay);
     document.getElementById("filter-skill-btn").addEventListener("click", function() {
       showAll = false;
