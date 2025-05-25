@@ -151,11 +151,11 @@
 
     function computeScrollSpeed(val) {
       if (isMobile()) {
-        // Mobil: 1 → 0.25px, 100 → 3px
-        return 0.25 + (val/100)*2.75;
+        // Mobil: 1 → 0.1px, 100 → 3px
+        return 0.1 + (val/100)*2.9;
       } else {
-        // Desktop: 1 → 0.5px, 100 → 6px
-        return 0.5 + (val/100)*5.5;
+        // Desktop: 1 → 0.1px, 100 → 6px
+        return 0.1 + (val/100)*5.9;
       }
     }
 
