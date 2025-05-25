@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Ultimate Guitar Akkord-Konverter (Akkorde vor Wörter)</title>
+  <title>Ultimate Guitar Akkord-Konverter (Akkorde vor Wörter, sauberer Zeilenbeginn)</title>
   <style>
     body { font-family: Arial, sans-serif; background: #f8f8fc; color: #222; margin: 0; padding: 2em; }
     h1 { color: #2378b6; }
@@ -13,11 +13,10 @@
   </style>
 </head>
 <body>
-  <h1>Ultimate Guitar Akkord-Konverter (Akkorde direkt vor Wörter)</h1>
+  <h1>Ultimate Guitar Akkord-Konverter (Akkorde direkt vor Wörter, saubere Zeilen)</h1>
   <p>
     Füge deinen Ultimate-Guitar-Text (inklusive Akkordzeilen) hier ein und klicke auf „Formatieren“.<br>
-    Akkorde werden direkt vor die passenden Wörter gesetzt (ohne Einrückungen).
-    Das Ergebnis kannst du unten bearbeiten und herunterladen.
+    Akkorde werden direkt vor die passenden Wörter gesetzt, und alle Zeilen beginnen ohne Leerzeichen.
   </p>
   <label for="input">Eingabe:</label>
   <textarea id="input" rows="16" cols="80" placeholder="Hier Ultimate Guitar Text einfügen..."></textarea>
@@ -38,12 +37,11 @@
       return chordCount > 0 && chordCount >= words.length * 0.7;
     }
 
-    // Die Akkorde werden einfach vor die nächsten Wörter der Textzeile gesetzt
+    // Akkorde werden einfach vor die nächsten Wörter der Textzeile gesetzt
     function mergeChordsToLyrics(chordLine, lyricLine) {
-      // Akkordliste extrahieren
       const chordRegex = /[A-G][#b]?(?:m|maj|min|sus|dim|aug|add)?\d*(?:\/[A-G][#b]?)?[*]*/g;
       const chords = chordLine.match(chordRegex) || [];
-      const words = lyricLine.split(/(\s+)/); // trennt auch die Leerzeichen als eigene Elemente für sauberes Zusammenfügen
+      const words = lyricLine.split(/(\s+)/);
       let result = '';
       let chordIdx = 0;
       for (let i = 0; i < words.length; i++) {
@@ -54,7 +52,6 @@
           result += words[i];
         }
       }
-      // Falls noch Akkorde übrig, hinten anhängen
       for (; chordIdx < chords.length; chordIdx++) {
         result += `[${chords[chordIdx]}]`;
       }
@@ -76,7 +73,9 @@
           i++;
         }
       }
-      document.getElementById('output').value = output.join('\n');
+      // Entferne alle führenden Leerzeichen jeder Zeile
+      const cleaned = output.map(l => l.trimStart()).join('\n');
+      document.getElementById('output').value = cleaned;
     }
 
     // Download als Textdatei
