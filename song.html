@@ -129,6 +129,11 @@
       return urlParams.get(param);
     }
 
+    function isMobile() {
+      // Einfache Mobil-Erkennung (iOS, Android, etc.)
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
     const id = getQueryParam('id');
     const titleEl = document.getElementById('song-title');
     const textEl = document.getElementById('song-text');
@@ -145,15 +150,20 @@
     let speedValue = 20; // aktuell (1-100)
     let scrollSpeed = 1; // px/frame, berechnet aus speedValue
 
-    // Formel: speedValue 1-100 → px/frame zwischen 0.5 und 6
+    // Zwei verschiedene Formeln für Mobil und Desktop
     function computeScrollSpeed(val) {
-      // 1 → 0.5px, 100 → 6px
-      return 0.5 + (val/100)*5.5;
+      if (isMobile()) {
+        // Mobil: 1 → 0.2px, 100 → 3.5px
+        return 0.2 + (val/100)*3.3;
+      } else {
+        // Desktop: 1 → 0.5px, 100 → 6px
+        return 0.5 + (val/100)*5.5;
+      }
     }
 
     function updateSpeedDisplay() {
       scrollSpeed = computeScrollSpeed(speedValue);
-      speedDisplay.textContent = `Geschwindigkeit: ${speedValue} (${scrollSpeed.toFixed(2)} px/Frame)`;
+      speedDisplay.textContent = `Geschwindigkeit: ${speedValue}`;
     }
 
     function startAutoscroll() {
