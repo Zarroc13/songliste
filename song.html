@@ -5,22 +5,118 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Songtext</title>
   <style>
-    /* ... (dein Style wie gehabt, siehe vorige Antworten) ... */
-    .autoscroll-btn { /* ... wie gehabt ... */ }
-    .autoscroll-info {
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #f8f8f8;
+    }
+    header {
+      background: #007acc;
+      color: white;
+      padding: 1rem;
       text-align: center;
-      font-size: 0.95rem;
-      color: #666;
-      margin-top: -0.6rem;
-      margin-bottom: 0.5rem;
+      font-weight: bold;
+      flex-shrink: 0;
+      font-size: 1.5rem;
+    }
+    .backlink {
+      display: block;
+      text-align: center;
+      margin: 1rem auto 0.2rem auto;
+      color: #007acc;
+      text-decoration: none;
+      font-size: 1rem;
+      max-width: 700px;
+    }
+    .backlink:hover {
+      text-decoration: underline;
+    }
+    .autoscroll-controls {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.4rem;
+      margin: 0.5rem auto 0.3rem auto;
+      max-width: 700px;
+      flex-wrap: wrap;
+    }
+    .autoscroll-btn, .speed-btn, .reset-btn {
+      padding: 0.4rem 1.2rem;
+      background: #ffc83d;
+      color: #1f1f1f;
+      font-weight: bold;
+      font-size: 1.05rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.07);
+    }
+    .autoscroll-btn.active { background: #ffe398; }
+    .speed-btn, .reset-btn {
+      padding: 0.3rem 0.7rem;
+      min-width: 2.2rem;
+      background: #eee;
+      color: #444;
+      font-size: 1rem;
+      font-weight: normal;
+      box-shadow: none;
+    }
+    .speed-btn.active, .reset-btn.active { background: #ffe398; color: #007acc; }
+    .speed-display {
+      min-width: 120px;
+      text-align: center;
+      font-size: 0.97rem;
+      color: #333;
+      background: #fffbe8;
+      border-radius: 4px;
+      padding: 0.2rem 0.6rem;
+      font-weight: bold;
+      margin: 0 0.3rem;
+      border: 1px solid #ffe398;
+    }
+    main {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      white-space: pre-wrap;
+      font-size: 1rem;
+      line-height: 1.4;
+      background: white;
+      max-width: 700px;
+      margin: 0 auto 2rem auto;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.08);
+      scroll-behavior: smooth;
+    }
+    .chord {
+      color: #E38D13;
+      font-weight: bold;
+      background: #fffbe8;
+      padding: 0 2px;
+      border-radius: 3px;
+    }
+    @media (max-width: 600px) {
+      header { font-size: 1.2rem; }
+      main { font-size: 0.95rem; padding: 0.5rem; }
+      .backlink, .autoscroll-btn, .speed-btn, .reset-btn { font-size: 0.95rem; }
+      .speed-display { font-size: 0.93rem; }
     }
   </style>
 </head>
 <body>
   <header id="song-title">Lade Song…</header>
   <a href="index.html" class="backlink">&larr; Zurück zur Songliste</a>
-  <div id="autoscroll-info" class="autoscroll-info"></div>
-  <button id="autoscroll-btn" class="autoscroll-btn">Autoscroll starten</button>
+  <div class="autoscroll-controls" id="autoscroll-controls" style="display:none;">
+    <button id="autoscroll-btn" class="autoscroll-btn">Autoscroll starten</button>
+    <button id="speed-minus" class="speed-btn" title="langsamer">-</button>
+    <span id="speed-display" class="speed-display"></span>
+    <button id="speed-plus" class="speed-btn" title="schneller">+</button>
+    <button id="reset-btn" class="reset-btn" title="Zurücksetzen auf Vorgabe">⟳</button>
+  </div>
   <main id="song-text">Bitte warten...</main>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script>
@@ -36,15 +132,29 @@
     const id = getQueryParam('id');
     const titleEl = document.getElementById('song-title');
     const textEl = document.getElementById('song-text');
+    const controlsEl = document.getElementById('autoscroll-controls');
     const autoscrollBtn = document.getElementById('autoscroll-btn');
-    const autoscrollInfo = document.getElementById('autoscroll-info');
+    const speedMinusBtn = document.getElementById('speed-minus');
+    const speedPlusBtn = document.getElementById('speed-plus');
+    const resetBtn = document.getElementById('reset-btn');
+    const speedDisplay = document.getElementById('speed-display');
 
     let autoscrollActive = false;
     let autoscrollTimer = null;
-    let scrollSpeed = 1; // Default, wird gleich überschrieben
+    let defaultSpeedValue = 20; // aus Sheet, 1-100
+    let speedValue = 20; // aktuell (1-100)
+    let scrollSpeed = 1; // px/frame, berechnet aus speedValue
 
-    // ==== Schritt 1: Songdaten aus Google Sheet laden =====
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
+    // Formel: speedValue 1-100 → px/frame zwischen 0.5 und 6
+    function computeScrollSpeed(val) {
+      // 1 → 0.5px, 100 → 6px
+      return 0.5 + (val/100)*5.5;
+    }
+
+    function updateSpeedDisplay() {
+      scrollSpeed = computeScrollSpeed(speedValue);
+      speedDisplay.textContent = `Geschwindigkeit: ${speedValue} (${scrollSpeed.toFixed(2)} px/Frame)`;
+    }
 
     function startAutoscroll() {
       if (autoscrollActive) return;
@@ -79,30 +189,49 @@
       }
     });
 
+    speedPlusBtn.addEventListener('click', () => {
+      if (speedValue < 100) {
+        speedValue += 1;
+        updateSpeedDisplay();
+      }
+    });
+    speedMinusBtn.addEventListener('click', () => {
+      if (speedValue > 1) {
+        speedValue -= 1;
+        updateSpeedDisplay();
+      }
+    });
+    resetBtn.addEventListener('click', () => {
+      speedValue = defaultSpeedValue;
+      updateSpeedDisplay();
+    });
+
+    // Autoscroll stoppen bei manuellem Scrollen
     textEl.addEventListener('wheel', stopAutoscroll);
     textEl.addEventListener('touchmove', stopAutoscroll);
 
     if (!id) {
       titleEl.textContent = 'Keine Song-ID angegeben';
       textEl.textContent = 'Bitte gib in der URL eine ID an, z.B. ?id=1';
-      autoscrollBtn.style.display = 'none';
-      autoscrollInfo.textContent = '';
+      controlsEl.style.display = 'none';
     } else {
-      // Schritt 2: Songdaten + Geschwindigkeit laden
+      // Songdaten + Geschwindigkeit laden
+      const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
       fetch(csvUrl)
         .then(res => res.text())
         .then(csvText => {
           const result = Papa.parse(csvText, { header: true, skipEmptyLines: true });
           const song = result.data.find(obj => (obj["Datensatznummer"] || "").trim() === id);
           if (song && song["AutoscrollSpeed"]) {
-            // Wert aus Sheet (1-100), wir rechnen auf px/frame um: z.B. 1 = sehr langsam, 100 = sehr schnell
-            // Du kannst die Formel anpassen! Hier: 1 = 0.5px/frame, 100 = 6px/frame
-            scrollSpeed = 0.5 + (parseInt(song["AutoscrollSpeed"],10)/100)*5.5;
-            autoscrollInfo.textContent = "Autoscroll-Geschwindigkeit: " + song["AutoscrollSpeed"] + " (" + scrollSpeed.toFixed(2) + " px/frame)";
+            let sheetVal = parseInt(song["AutoscrollSpeed"],10);
+            if (isNaN(sheetVal) || sheetVal < 1 || sheetVal > 100) sheetVal = 20;
+            defaultSpeedValue = sheetVal;
+            speedValue = sheetVal;
           } else {
-            scrollSpeed = 1;
-            autoscrollInfo.textContent = "Autoscroll-Geschwindigkeit: Standard (1)";
+            defaultSpeedValue = 20;
+            speedValue = 20;
           }
+          updateSpeedDisplay();
           // Jetzt Songtext laden!
           const filePath = `songs/${id}.txt`;
           return fetch(filePath);
@@ -121,20 +250,18 @@
             titleEl.textContent = lines[0].trim();
             const songBody = lines.slice(1).join('\n').trim();
             textEl.innerHTML = highlightChords(songBody);
-            autoscrollBtn.style.display = 'block'; // Button einblenden
+            controlsEl.style.display = 'flex'; // Buttons einblenden
           } else {
             titleEl.textContent = `Song ID ${id}`;
             textEl.textContent = text;
-            autoscrollBtn.style.display = 'none';
-            autoscrollInfo.textContent = "";
+            controlsEl.style.display = 'none';
           }
         })
         .catch(err => {
           if (err !== 'redirect') {
             titleEl.textContent = "Fehler";
             textEl.textContent = "Song konnte nicht geladen werden.";
-            autoscrollBtn.style.display = 'none';
-            autoscrollInfo.textContent = "";
+            controlsEl.style.display = 'none';
           }
         });
     }
