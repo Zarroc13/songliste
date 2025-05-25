@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -9,6 +8,27 @@
       font-family: sans-serif;
       padding: 2rem;
       background: #f8f8f8;
+    }
+    .filter-bar {
+      margin-bottom: 1.5rem;
+    }
+    .filter-bar input[type="text"] {
+      padding: 0.3rem;
+      font-size: 1rem;
+      width: 200px;
+    }
+    .filter-bar button {
+      margin-left: 1rem;
+      padding: 0.3rem 1rem;
+      font-size: 1rem;
+      color: white;
+      background: #007acc;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .filter-bar button.active {
+      background: #005999;
     }
     table {
       width: 100%;
@@ -24,7 +44,11 @@
     th {
       background: #007acc;
       color: white;
+      cursor: pointer;
+      user-select: none;
     }
+    th.sort-asc::after { content: " ▲"; }
+    th.sort-desc::after { content: " ▼"; }
     a {
       color: #007acc;
       text-decoration: none;
@@ -36,10 +60,21 @@
 </head>
 <body>
   <h1>Meine Songliste</h1>
+  <div class="filter-bar">
+    <label>
+      Suche:
+      <input type="text" id="search-input" placeholder="Song oder Interpret">
+    </label>
+    <button id="filter-skill-btn" class="active" title="Nur Songs ab Können 5">Nur Können ab 5</button>
+    <button id="show-all-btn" title="Alle Songs anzeigen">Alle anzeigen</button>
+  </div>
   <div id="table-container">Wird geladen...</div>
 
   <script>
     const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
+    let allData = [];
+    let showAll = false;
+    let currentSort = { key: "Song", direction: "asc" };
 
     async function loadCSV(url) {
       const res = await fetch(url);
@@ -48,8 +83,22 @@
       const headers = rows[0];
       return rows.slice(1).map(row => {
         const obj = Object.fromEntries(row.map((val, i) => [headers[i], val.trim()]));
-        obj["Datensatznummer"] = obj["Datensatznummer"].trim(); // Wichtig!
+        obj["Datensatznummer"] = obj["Datensatznummer"].trim();
+        obj["Können (1-10)"] = parseInt(obj["Können (1-10)"], 10) || 0;
         return obj;
+      });
+    }
+
+    function sortData(data, key, direction) {
+      const dir = direction === "asc" ? 1 : -1;
+      return [...data].sort((a, b) => {
+        let aVal = a[key] || "";
+        let bVal = b[key] || "";
+        // Numerisch bei Können, sonst alphabetisch
+        if (key === "Können (1-10)") {
+          return dir * (aVal - bVal);
+        }
+        return dir * aVal.localeCompare(bVal, "de", { sensitivity: "base" });
       });
     }
 
@@ -63,12 +112,23 @@
       const table = document.createElement("table");
       const thead = document.createElement("thead");
       const tbody = document.createElement("tbody");
+      const headers = ["Song", "Interpret", "Sprache", "Können (1-10)", "Kapo"];
 
-      // Tabellenkopf
+      // Tabellenkopf mit Sortierfunktion
       const headerRow = document.createElement("tr");
-      ["Song", "Interpret", "Sprache", "Können", "Kapo"].forEach(key => {
+      headers.forEach(key => {
         const th = document.createElement("th");
-        th.textContent = key;
+        th.textContent = key.replace(" (1-10)","");
+        if (key === currentSort.key) th.classList.add("sort-" + currentSort.direction);
+        th.onclick = () => {
+          if (currentSort.key === key) {
+            currentSort.direction = currentSort.direction === "asc" ? "desc" : "asc";
+          } else {
+            currentSort.key = key;
+            currentSort.direction = "asc";
+          }
+          filterAndDisplay();
+        };
         headerRow.appendChild(th);
       });
       thead.appendChild(headerRow);
@@ -76,7 +136,6 @@
       // Datenzeilen
       data.forEach(row => {
         const tr = document.createElement("tr");
-
         const songCell = document.createElement("td");
         const link = document.createElement("a");
         link.href = `song.html?id=${row["Datensatznummer"]}`;
@@ -99,8 +158,42 @@
       container.appendChild(table);
     }
 
+    function filterAndDisplay() {
+      const search = document.getElementById("search-input").value.trim().toLowerCase();
+      let filtered = allData.filter(row => {
+        const matchesSearch =
+          row["Song"].toLowerCase().includes(search) ||
+          row["Interpret"].toLowerCase().includes(search);
+        const enoughSkill = showAll ? true : row["Können (1-10)"] >= 5;
+        return matchesSearch && enoughSkill;
+      });
+
+      filtered = sortData(filtered, currentSort.key, currentSort.direction);
+      buildTable(filtered);
+    }
+
+    // Event-Listener für Filter
+    document.getElementById("search-input").addEventListener("input", filterAndDisplay);
+    document.getElementById("filter-skill-btn").addEventListener("click", function() {
+      showAll = false;
+      this.classList.add("active");
+      document.getElementById("show-all-btn").classList.remove("active");
+      filterAndDisplay();
+    });
+    document.getElementById("show-all-btn").addEventListener("click", function() {
+      showAll = true;
+      this.classList.add("active");
+      document.getElementById("filter-skill-btn").classList.remove("active");
+      filterAndDisplay();
+    });
+
+    // Initialer Zustand: Nur Können ab 5
     loadCSV(csvUrl)
-      .then(buildTable)
+      .then(data => {
+        allData = data;
+        showAll = false;
+        filterAndDisplay();
+      })
       .catch(err => {
         console.error(err);
         document.getElementById("table-container").textContent = "Fehler beim Laden.";
