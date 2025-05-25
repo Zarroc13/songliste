@@ -34,6 +34,22 @@
     .backlink:hover {
       text-decoration: underline;
     }
+    .autoscroll-btn {
+      display: none;
+      margin: 0.7rem auto 1rem auto;
+      padding: 0.5rem 1.5rem;
+      background: #ffc83d;
+      color: #1f1f1f;
+      font-weight: bold;
+      font-size: 1.05rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.07);
+      max-width: 700px;
+    }
+    .autoscroll-btn.active { background: #ffe398; }
     main {
       flex-grow: 1;
       overflow-y: auto;
@@ -46,6 +62,7 @@
       margin: 0 auto 2rem auto;
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(0,0,0,0.08);
+      scroll-behavior: smooth;
     }
     .chord {
       color: #E38D13;
@@ -57,7 +74,7 @@
     @media (max-width: 600px) {
       header { font-size: 1.2rem; }
       main { font-size: 0.95rem; padding: 0.5rem; }
-      .backlink { font-size: 0.95rem; }
+      .backlink, .autoscroll-btn { font-size: 0.95rem; }
     }
     main::-webkit-scrollbar { width: 6px; }
     main::-webkit-scrollbar-thumb {
@@ -68,6 +85,7 @@
 <body>
   <header id="song-title">Lade Song…</header>
   <a href="index.html" class="backlink">&larr; Zurück zur Songliste</a>
+  <button id="autoscroll-btn" class="autoscroll-btn">Autoscroll starten</button>
   <main id="song-text">Bitte warten...</main>
   <script>
     function highlightChords(text) {
@@ -82,6 +100,49 @@
     const id = getQueryParam('id');
     const titleEl = document.getElementById('song-title');
     const textEl = document.getElementById('song-text');
+    const autoscrollBtn = document.getElementById('autoscroll-btn');
+
+    let autoscrollActive = false;
+    let autoscrollTimer = null;
+    const SCROLL_SPEED = 1; // px per frame (ca. 60px/sec)
+
+    function startAutoscroll() {
+      if (autoscrollActive) return;
+      autoscrollActive = true;
+      autoscrollBtn.textContent = "Autoscroll stoppen";
+      autoscrollBtn.classList.add("active");
+
+      function scrollStep() {
+        if (!autoscrollActive) return;
+        textEl.scrollTop += SCROLL_SPEED;
+        if (textEl.scrollTop + textEl.clientHeight < textEl.scrollHeight) {
+          autoscrollTimer = requestAnimationFrame(scrollStep);
+        } else {
+          stopAutoscroll();
+        }
+      }
+      scrollStep();
+    }
+
+    function stopAutoscroll() {
+      autoscrollActive = false;
+      autoscrollBtn.textContent = "Autoscroll starten";
+      autoscrollBtn.classList.remove("active");
+      if (autoscrollTimer) cancelAnimationFrame(autoscrollTimer);
+      autoscrollTimer = null;
+    }
+
+    autoscrollBtn.addEventListener('click', () => {
+      if (autoscrollActive) {
+        stopAutoscroll();
+      } else {
+        startAutoscroll();
+      }
+    });
+
+    // Falls User manuell scrollt, Autoscroll stoppen
+    textEl.addEventListener('wheel', stopAutoscroll);
+    textEl.addEventListener('touchmove', stopAutoscroll);
 
     if (!id) {
       titleEl.textContent = 'Keine Song-ID angegeben';
@@ -104,15 +165,18 @@
             titleEl.textContent = lines[0].trim();
             const songBody = lines.slice(1).join('\n').trim();
             textEl.innerHTML = highlightChords(songBody);
+            autoscrollBtn.style.display = 'block'; // Button EINblenden
           } else {
             titleEl.textContent = `Song ID ${id}`;
             textEl.textContent = text;
+            autoscrollBtn.style.display = 'none';
           }
         })
         .catch(err => {
           if (err !== 'redirect') {
             titleEl.textContent = "Fehler";
             textEl.textContent = "Song konnte nicht geladen werden.";
+            autoscrollBtn.style.display = 'none';
           }
         });
     }
