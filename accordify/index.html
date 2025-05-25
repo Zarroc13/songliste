@@ -2,41 +2,95 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Ultimate Guitar Akkord-Konverter Demo</title>
+  <title>Ultimate Guitar Akkord-Konverter (Präzise Version)</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8f8fc; color: #222; margin: 0; padding: 2em; }
+    h1 { color: #2378b6; }
+    textarea { width: 100%; font-family: "Courier New", Courier, monospace; margin-bottom: 1em; background: #fff; border: 1px solid #bbb; padding: 0.5em; box-sizing: border-box; resize: vertical; }
+    button { background: #2378b6; color: #fff; border: none; padding: 0.5em 1.2em; margin: 0.2em; border-radius: 4px; cursor: pointer; }
+    button:disabled { background: #a0a0a0; cursor: default; }
+    label { font-weight: bold; }
+  </style>
 </head>
 <body>
-  <h1>Ultimate Guitar Akkord-Konverter (Demo)</h1>
+  <h1>Ultimate Guitar Akkord-Konverter (Präzise Version)</h1>
   <p>
-    Füge hier deinen Ultimate Guitar Text ein:
+    Füge deinen Ultimate-Guitar-Text (inklusive Akkordzeilen) hier ein und klicke auf „Formatieren“.<br>
+    Das Ergebnis kannst du unten bearbeiten und bei Bedarf kopieren oder herunterladen.
   </p>
-  <textarea id="input" rows="10" cols="60" placeholder="Kopiere hier den Songtext mit Akkorden hinein"></textarea>
+  <label for="input">Eingabe:</label>
+  <textarea id="input" rows="16" cols="80" placeholder="Hier Ultimate Guitar Text einfügen..."></textarea>
   <br>
   <button onclick="convert()">Formatieren</button>
+  <button onclick="downloadTxt()">Als TXT herunterladen</button>
   <h2>Ergebnis (bearbeitbar):</h2>
-  <textarea id="output" rows="10" cols="60" style="width:100%"></textarea>
+  <textarea id="output" rows="16" cols="80" style="width:100%"></textarea>
   <script>
+    // Hilfsfunktion: Bestimme, ob eine Zeile eine Akkordzeile ist
+    function isChordLine(line) {
+      // Akkorde bestehen meist aus Großbuchstaben, #, b, Zahlen, m, sus, dim, add, aug, *, / etc.
+      // Die Zeile ist eine Akkordzeile, wenn sie fast nur aus solchen "Worten" besteht
+      if (!line.trim()) return false;
+      // Erlaube auch Zeilen wie: "  Am     Em    Am*"
+      const words = line.trim().split(/\s+/);
+      // Mindestens 1 "Chord-Wort", und mindestens 70% der Wörter sind Chords
+      let chordCount = 0;
+      for (const word of words) {
+        if (/^[A-G][#b]?(m|maj|min|sus|dim|aug|add)?\d*(\/[A-G][#b]?)?[*]*$/.test(word)) chordCount++;
+      }
+      return chordCount > 0 && chordCount >= words.length * 0.7;
+    }
+
+    // Hauptfunktion: Akkorde exakt an Position im Text einfügen
     function convert() {
-      // Sehr einfache Zeilenweise-Konvertierung: Chord-Zeilen werden in die nächste Lyriczeile eingefügt
-      const input = document.getElementById('input').value.split('\n');
-      let result = [];
-      for (let i = 0; i < input.length; i++) {
-        const line = input[i];
-        // Wenn die Zeile Akkorde (nur Großbuchstaben, #, b, Ziffern, Leerzeichen) enthält und keine Satzzeichen/Wörter, dann als Chordzeile behandeln
-        if (/^(\s*[A-G][#b]?[a-zA-Z0-9\/]*\s*)+$/.test(line.trim())) {
-          // Füge Akkorde als [CHORD] an die nächste Zeile (falls vorhanden)
-          const chords = line.trim().split(/\s+/);
-          let lyricLine = input[i+1] || "";
-          let offset = 0;
-          for (const chord of chords) {
-            lyricLine = '[' + chord + ']' + lyricLine;
+      const lines = document.getElementById('input').value.split('\n');
+      let output = [];
+      let i = 0;
+      while (i < lines.length) {
+        const line = lines[i];
+        if (isChordLine(line) && i + 1 < lines.length) {
+          const chordLine = line;
+          let lyricLine = lines[i + 1];
+          // Für jede Akkord-Position in der Akkordzeile: Akkord als [Chord] in Textzeile einfügen
+          let inserts = [];
+          let regex = /([A-G][#b]?(m|maj|min|sus|dim|aug|add)?\d*(\/[A-G][#b]?)?[*]*)/g;
+          let match;
+          while ((match = regex.exec(chordLine)) !== null) {
+            let chord = match[1];
+            if (chord.trim() === "") continue;
+            let pos = match.index;
+            inserts.push({pos, chord});
           }
-          result.push(lyricLine);
-          i++; // Skip next line, da schon verarbeitet
+          // Von hinten nach vorne einfügen, damit die Indizes stimmen
+          let lyricArr = lyricLine.split('');
+          for (let j = inserts.length - 1; j >= 0; j--) {
+            const insert = inserts[j];
+            // Korrigiere, falls Zeile kürzer als Akkordposition (kommt vor, dann ans Ende setzen)
+            const idx = Math.min(insert.pos, lyricArr.length);
+            lyricArr.splice(idx, 0, `[${insert.chord}]`);
+          }
+          output.push(lyricArr.join(''));
+          i += 2; // überspringe Textzeile
         } else {
-          result.push(line);
+          output.push(line);
+          i++;
         }
       }
-      document.getElementById('output').value = result.join('\n');
+      document.getElementById('output').value = output.join('\n');
+    }
+
+    // Download als Textdatei
+    function downloadTxt() {
+      const text = document.getElementById('output').value;
+      const blob = new Blob([text], {type: "text/plain"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "song_mit_akkorden.txt";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
   </script>
 </body>
