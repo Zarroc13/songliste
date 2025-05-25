@@ -2,42 +2,21 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Ultimate Guitar Akkord-Konverter Demo</title>
+  <title>Ultimate Guitar Akkord-Konverter</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Ultimate Guitar Akkord-Konverter (Demo)</h1>
+  <h1>Ultimate Guitar Akkord-Konverter</h1>
   <p>
-    Füge hier deinen Ultimate Guitar Text ein:
+    Füge unten deinen kopierten Ultimate-Guitar-Text (mit Akkorden) ein und klicke auf „Formatieren“.<br>
+    Der Text wird so umgewandelt, dass die Akkorde im Songtext in eckigen Klammern stehen.
   </p>
-  <textarea id="input" rows="10" cols="60" placeholder="Kopiere hier den Songtext mit Akkorden hinein"></textarea>
+  <textarea id="input" rows="20" cols="80" placeholder="Hier Ultimate Guitar Text einfügen"></textarea>
   <br>
-  <button onclick="convert()">Formatieren</button>
+  <button id="convertBtn">Formatieren</button>
+  <button id="downloadBtn" disabled>Als TXT herunterladen</button>
   <h2>Ergebnis:</h2>
   <pre id="output"></pre>
-  <script>
-    function convert() {
-      // Sehr einfache Zeilenweise-Konvertierung: Chord-Zeilen werden in die nächste Lyriczeile eingefügt
-      const input = document.getElementById('input').value.split('\n');
-      let result = [];
-      for (let i = 0; i < input.length; i++) {
-        const line = input[i];
-        // Wenn die Zeile Akkorde (nur Großbuchstaben, #, b, Ziffern, Leerzeichen) enthält und keine Satzzeichen/Wörter, dann als Chordzeile behandeln
-        if (/^(\s*[A-G][#b]?[a-zA-Z0-9\/]*\s*)+$/.test(line.trim())) {
-          // Füge Akkorde als [CHORD] an die nächste Zeile (falls vorhanden)
-          const chords = line.trim().split(/\s+/);
-          let lyricLine = input[i+1] || "";
-          let offset = 0;
-          for (const chord of chords) {
-            lyricLine = '[' + chord + ']' + lyricLine;
-          }
-          result.push(lyricLine);
-          i++; // Skip next line, da schon verarbeitet
-        } else {
-          result.push(line);
-        }
-      }
-      document.getElementById('output').textContent = result.join('\n');
-    }
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>
