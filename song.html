@@ -150,7 +150,6 @@
     let speedValue = 20; // aktuell (1-100)
     let scrollSpeed = 1; // px/frame, berechnet aus speedValue
 
-    // Zwei verschiedene Formeln für Mobil und Desktop
     function computeScrollSpeed(val) {
       if (isMobile()) {
         // Mobil: 1 → 0.2px, 100 → 3.5px
@@ -201,13 +200,15 @@
 
     speedPlusBtn.addEventListener('click', () => {
       if (speedValue < 100) {
-        speedValue += 1;
+        speedValue += 5;
+        if (speedValue > 100) speedValue = 100;
         updateSpeedDisplay();
       }
     });
     speedMinusBtn.addEventListener('click', () => {
       if (speedValue > 1) {
-        speedValue -= 1;
+        speedValue -= 5;
+        if (speedValue < 1) speedValue = 1;
         updateSpeedDisplay();
       }
     });
@@ -216,7 +217,6 @@
       updateSpeedDisplay();
     });
 
-    // Autoscroll stoppen bei manuellem Scrollen
     textEl.addEventListener('wheel', stopAutoscroll);
     textEl.addEventListener('touchmove', stopAutoscroll);
 
@@ -225,7 +225,6 @@
       textEl.textContent = 'Bitte gib in der URL eine ID an, z.B. ?id=1';
       controlsEl.style.display = 'none';
     } else {
-      // Songdaten + Geschwindigkeit laden
       const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
       fetch(csvUrl)
         .then(res => res.text())
@@ -242,7 +241,6 @@
             speedValue = 20;
           }
           updateSpeedDisplay();
-          // Jetzt Songtext laden!
           const filePath = `songs/${id}.txt`;
           return fetch(filePath);
         })
@@ -260,7 +258,7 @@
             titleEl.textContent = lines[0].trim();
             const songBody = lines.slice(1).join('\n').trim();
             textEl.innerHTML = highlightChords(songBody);
-            controlsEl.style.display = 'flex'; // Buttons einblenden
+            controlsEl.style.display = 'flex';
           } else {
             titleEl.textContent = `Song ID ${id}`;
             textEl.textContent = text;
