@@ -1,0 +1,41 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f8f8fc;
+  color: #222;
+  margin: 0;
+  padding: 2em;
+}
+h1 {
+  color: #2378b6;
+}
+textarea {
+  width: 100%;
+  font-family: "Courier New", Courier, monospace;
+  margin-bottom: 1em;
+  background: #fff;
+  border: 1px solid #bbb;
+  padding: 0.5em;
+  box-sizing: border-box;
+  resize: vertical;
+}
+button {
+  background: #2378b6;
+  color: #fff;
+  border: none;
+  padding: 0.5em 1.2em;
+  margin: 0.2em;
+  border-radius: 4px;
+  cursor: pointer;
+}
+button:disabled {
+  background: #a0a0a0;
+  cursor: default;
+}
+pre {
+  background: #fff;
+  border: 1px solid #bbb;
+  padding: 1em;
+  white-space: pre-wrap;
+  word-break: break-all;
+  min-height: 10em;
+}
