@@ -24,73 +24,75 @@
       width: 100%;
       border: none;
     }
-    .message {
+    .error {
       padding: 2rem;
-      text-align: center;
       font-size: 1.2rem;
-      color: #444;
+      text-align: center;
+      color: #900;
     }
   </style>
 </head>
 <body>
-  <header id="songTitle">Lade Songdetails...</header>
-  <div id="container">
-    <div class="message">Wird geladen...</div>
-  </div>
+  <header id="songHeader">Songdetails</header>
+  <div id="error" class="error" style="display:none;"></div>
+  <iframe id="iframe" style="display:none;"></iframe>
 
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get("id");
-
     const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
+
+    function getID() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("id");
+    }
 
     async function loadCSV(url) {
       const res = await fetch(url);
       const text = await res.text();
       const rows = text.trim().split("\n").map(r => r.split(","));
-      const headers = rows[0];
-      return rows.slice(1).map(row => {
-        const obj = Object.fromEntries(row.map((val, i) => [headers[i], val]));
-        obj["Datensatznummer"] = obj["Datensatznummer"].trim(); // Als String!
-        return obj;
-      });
+      const headers = rows[0].map(h => h.trim());
+      return rows.slice(1).map(row =>
+        Object.fromEntries(row.map((val, i) => [headers[i], val.trim()]))
+      );
     }
 
-    function showMessage(text) {
-      const container = document.getElementById("container");
-      container.innerHTML = `<div class="message">${text}</div>`;
-    }
+    async function init() {
+      const id = getID();
+      if (!id) {
+        showError("Keine ID angegeben.");
+        return;
+      }
 
-    if (!id) {
-      showMessage("Keine ID angegeben.");
-    } else {
-      loadCSV(csvUrl).then(data => {
-        const song = data.find(s => s["Datensatznummer"] === id);
+      try {
+        const data = await loadCSV(csvUrl);
+        const song = data.find(d => d["Datensatznummer"] === id);
+
         if (!song) {
-          showMessage("Kein Song mit dieser ID gefunden.");
+          showError("Kein Song mit dieser ID gefunden.");
           return;
         }
 
-        const title = song["Song"] || "Unbekannter Song";
-        const docUrl = song["Noten"]?.trim();
+        document.getElementById("songHeader").textContent = `${song["Song"] || "Unbekannter Song"} – Akkorde & Text`;
 
-        document.getElementById("songTitle").textContent = `${title} – Akkorde & Text`;
-
-        if (!docUrl) {
-          showMessage("Kein eingebettetes Dokument vorhanden.");
-        } else {
-          const iframe = document.createElement("iframe");
-          iframe.src = docUrl.includes("embedded=true") ? docUrl : docUrl + "?embedded=true";
-
-          const container = document.getElementById("container");
-          container.innerHTML = "";
-          container.appendChild(iframe);
+        if (!song["Noten"]) {
+          showError("Kein eingebettetes Dokument vorhanden.");
+          return;
         }
-      }).catch(err => {
-        console.error(err);
-        showMessage("Fehler beim Laden der Daten.");
-      });
+
+        document.getElementById("iframe").src = song["Noten"] + "?embedded=true";
+        document.getElementById("iframe").style.display = "block";
+      } catch (e) {
+        showError("Fehler beim Laden der Daten.");
+        console.error(e);
+      }
     }
+
+    function showError(message) {
+      const errorDiv = document.getElementById("error");
+      errorDiv.textContent = message;
+      errorDiv.style.display = "block";
+    }
+
+    init();
   </script>
 </body>
 </html>
