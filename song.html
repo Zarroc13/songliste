@@ -155,8 +155,8 @@
         // Mobil: 1 → 0.2px, 100 → 3.5px
         return 0.2 + (val/100)*3.3;
       } else {
-        // Desktop: 1 → 0.5px, 100 → 6px
-        return 0.5 + (val/100)*5.5;
+        // Desktop: 1 → 0.05px, 100 → 3px (angepasst für sehr langsames Minimum)
+        return 0.05 + (val/100)*2.95;
       }
     }
 
