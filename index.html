@@ -161,18 +161,20 @@
     function filterAndDisplay() {
       const search = document.getElementById("search-input").value.trim().toLowerCase();
       let filtered = allData.filter(row => {
+        // Nur Songs mit Titel anzeigen!
+        const hasTitle = row["Song"] && row["Song"].trim() !== "";
         const matchesSearch =
           row["Song"].toLowerCase().includes(search) ||
           row["Interpret"].toLowerCase().includes(search);
         const enoughSkill = showAll ? true : row["Können (1-10)"] >= 5;
-        return matchesSearch && enoughSkill;
+        return hasTitle && matchesSearch && enoughSkill;
       });
 
       filtered = sortData(filtered, currentSort.key, currentSort.direction);
       buildTable(filtered);
     }
 
-    // Event-Listener für Filter
+    // Filter-Buttons und Suche
     document.getElementById("search-input").addEventListener("input", filterAndDisplay);
     document.getElementById("filter-skill-btn").addEventListener("click", function() {
       showAll = false;
@@ -187,7 +189,7 @@
       filterAndDisplay();
     });
 
-    // Initialer Zustand: Nur Können ab 5
+    // Initialer Zustand: Nur Können ab 5, leere Titel werden gefiltert
     loadCSV(csvUrl)
       .then(data => {
         allData = data;
