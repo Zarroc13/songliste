@@ -1,14 +1,123 @@
-// In song.html beim Laden des Songtextes:
-fetch(filePath)
-  .then(response => {
-    if (!response.ok) {
-      // Falls Songtext nicht vorhanden, weiterleiten:
-      window.location.href = "ultimate.html?id=" + encodeURIComponent(id);
-      throw new Error('Datei nicht gefunden'); // Optional, um Promise-Kette zu beenden
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Songtext</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #f8f8f8;
     }
-    return response.text();
-  })
-  .then( ... // wie gehabt )
-  .catch(err => {
-    // Bleibt wie gehabt, falls du noch lokale Fehler abfangen willst
-  });
+    header {
+      background: #007acc;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      font-weight: bold;
+      flex-shrink: 0;
+      font-size: 1.5rem;
+    }
+    .backlink {
+      display: block;
+      text-align: center;
+      margin: 1rem auto 0.2rem auto;
+      color: #007acc;
+      text-decoration: none;
+      font-size: 1rem;
+      max-width: 700px;
+    }
+    .backlink:hover {
+      text-decoration: underline;
+    }
+    main {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      white-space: pre-wrap;
+      font-size: 1rem;
+      line-height: 1.4;
+      background: white;
+      max-width: 700px;
+      margin: 0 auto 2rem auto;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.08);
+    }
+    .chord {
+      color: #E38D13;
+      font-weight: bold;
+      background: #fffbe8;
+      padding: 0 2px;
+      border-radius: 3px;
+    }
+    @media (max-width: 600px) {
+      header { font-size: 1.2rem; }
+      main { font-size: 0.95rem; padding: 0.5rem; }
+      .backlink { font-size: 0.95rem; }
+    }
+    main::-webkit-scrollbar { width: 6px; }
+    main::-webkit-scrollbar-thumb {
+      background-color: rgba(0,0,0,0.2); border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <header id="song-title">Lade Song…</header>
+  <a href="index.html" class="backlink">&larr; Zurück zur Songliste</a>
+  <main id="song-text">Bitte warten...</main>
+  <script>
+    // Akkorde im Text hervorheben (einfache Variante)
+    function highlightChords(text) {
+      // Akkorde: [C], [G], [Am], [Dm7], etc.
+      return text.replace(/\[([A-G][#b]?m?(?:add|dim|aug|sus|maj|min)?\d*)\]/g, '<span class="chord">[$1]</span>');
+    }
+
+    // Hilfsfunktion für URL-Parameter
+    function getQueryParam(param) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(param);
+    }
+
+    const id = getQueryParam('id');
+    const titleEl = document.getElementById('song-title');
+    const textEl = document.getElementById('song-text');
+
+    if (!id) {
+      titleEl.textContent = 'Keine Song-ID angegeben';
+      textEl.textContent = 'Bitte gib in der URL eine ID an, z.B. ?id=1';
+    } else {
+      const filePath = `songs/${id}.txt`;
+
+      fetch(filePath)
+        .then(response => {
+          if (!response.ok) {
+            // Songtext nicht gefunden -> zu ultimate.html weiterleiten
+            window.location.href = "ultimate.html?id=" + encodeURIComponent(id);
+            return null;
+          }
+          return response.text();
+        })
+        .then(text => {
+          if (!text) return; // Falls wegen Weiterleitung: nichts mehr machen
+          // Titel aus erster Zeile, Rest als Songtext
+          const lines = text.split('\n');
+          if (lines.length > 0) {
+            titleEl.textContent = lines[0].trim();
+            const songBody = lines.slice(1).join('\n').trim();
+            textEl.innerHTML = highlightChords(songBody);
+          } else {
+            titleEl.textContent = `Song ID ${id}`;
+            textEl.textContent = text;
+          }
+        })
+        .catch(err => {
+          // Optional: Netzwerkausfälle oder andere Fehler behandeln
+        });
+    }
+  </script>
+</body>
+</html>
