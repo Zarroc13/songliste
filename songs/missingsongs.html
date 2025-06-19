@@ -2,25 +2,82 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Datei-Anzahl im Ordner zählen</title>
+    <title>Fehlende Songdateien auf GitHub</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 30px; }
         h1 { color: #333; }
-        #count { font-size: 1.4em; margin-top: 20px; }
+        ul { list-style: none; padding: 0; }
+        li { padding: 4px 0; }
+        .missing { color: red; }
+        .found { color: #555; }
+        label { margin-right: 10px; }
     </style>
 </head>
 <body>
-    <h1>Dateien im Ordner zählen</h1>
-    <p>Wähle alle Dateien aus deinem Ordner aus:</p>
-    <input type="file" id="fileInput" multiple>
-    <div id="count"></div>
+    <h1>Fehlende Songdateien auf GitHub</h1>
+    <label>
+        Bis zu welcher Nummer soll geprüft werden?
+        <input type="number" min="1" max="9999" value="123" id="maxNum" style="width: 60px;">
+    </label>
+    <button onclick="checkFiles()">Prüfen</button>
+    <h2>Ergebnis</h2>
+    <ul id="missingList"></ul>
 
     <script>
-        document.getElementById('fileInput').addEventListener('change', function(event) {
-            const files = event.target.files;
-            document.getElementById('count').textContent = 
-                "Anzahl der ausgewählten Dateien: " + files.length;
-        });
+        const owner = "Zarroc13";
+        const repo = "songliste";
+        const path = "songs";
+        const branch = "main"; // Passe ggf. den Branch an!
+
+        async function fetchSongFiles() {
+            const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+            const response = await fetch(apiUrl);
+            if (!response.ok) {
+                throw new Error("Fehler beim Laden der Dateien von GitHub.");
+            }
+            const data = await response.json();
+            return data.filter(item => item.name.endsWith('.txt')).map(item => item.name);
+        }
+
+        async function checkFiles() {
+            const max = parseInt(document.getElementById('maxNum').value, 10);
+            const ul = document.getElementById('missingList');
+            ul.innerHTML = '<li>Lade Daten von GitHub ...</li>';
+
+            let fileNames = [];
+            try {
+                fileNames = await fetchSongFiles();
+            } catch (e) {
+                ul.innerHTML = `<li style="color:red;">${e.message}</li>`;
+                return;
+            }
+
+            const existingNumbers = new Set(
+                fileNames
+                    .map(n => n.match(/^(\d+)\.txt$/))
+                    .filter(Boolean)
+                    .map(m => parseInt(m[1], 10))
+            );
+
+            const missing = [];
+            for (let i = 1; i <= max; i++) {
+                if (!existingNumbers.has(i)) {
+                    missing.push(i);
+                }
+            }
+
+            ul.innerHTML = '';
+            if (missing.length === 0) {
+                ul.innerHTML = '<li class="found">Es fehlen keine Dateien im Bereich 1 bis ' + max + '.</li>';
+            } else {
+                missing.forEach(num => {
+                    const li = document.createElement('li');
+                    li.textContent = `Fehlt: ${num}.txt`;
+                    li.className = 'missing';
+                    ul.appendChild(li);
+                });
+            }
+        }
     </script>
 </body>
 </html>
