@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Fehlende Songdateien</title>
+    <title>Fehlende Songdateien auf GitHub</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 30px; }
         h1 { color: #333; }
@@ -15,11 +14,7 @@
     </style>
 </head>
 <body>
-    <h1>Fehlende Songdateien</h1>
-    <p>
-        Lade die <strong>songs</strong>-Dateien (z.B. <code>1.txt</code> bis <code>123.txt</code>) hier hoch:<br>
-        <input type="file" id="fileInput" multiple accept=".txt">
-    </p>
+    <h1>Fehlende Songdateien auf GitHub</h1>
     <label>
         Bis zu welcher Nummer soll geprüft werden?
         <input type="number" min="1" max="9999" value="123" id="maxNum" style="width: 60px;">
@@ -29,15 +24,34 @@
     <ul id="missingList"></ul>
 
     <script>
-        let selectedFiles = [];
+        const owner = "Zarroc13";
+        const repo = "songliste";
+        const path = "songs";
+        const branch = "main"; // Passe ggf. den Branch an!
 
-        document.getElementById('fileInput').addEventListener('change', function(event) {
-            selectedFiles = Array.from(event.target.files);
-        });
+        async function fetchSongFiles() {
+            const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+            const response = await fetch(apiUrl);
+            if (!response.ok) {
+                throw new Error("Fehler beim Laden der Dateien von GitHub.");
+            }
+            const data = await response.json();
+            return data.filter(item => item.name.endsWith('.txt')).map(item => item.name);
+        }
 
-        function checkFiles() {
+        async function checkFiles() {
             const max = parseInt(document.getElementById('maxNum').value, 10);
-            const fileNames = selectedFiles.map(f => f.name);
+            const ul = document.getElementById('missingList');
+            ul.innerHTML = '<li>Lade Daten von GitHub ...</li>';
+
+            let fileNames = [];
+            try {
+                fileNames = await fetchSongFiles();
+            } catch (e) {
+                ul.innerHTML = `<li style="color:red;">${e.message}</li>`;
+                return;
+            }
+
             const existingNumbers = new Set(
                 fileNames
                     .map(n => n.match(/^(\d+)\.txt$/))
@@ -52,9 +66,7 @@
                 }
             }
 
-            const ul = document.getElementById('missingList');
             ul.innerHTML = '';
-
             if (missing.length === 0) {
                 ul.innerHTML = '<li class="found">Es fehlen keine Dateien im Bereich 1 bis ' + max + '.</li>';
             } else {
