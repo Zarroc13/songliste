@@ -64,15 +64,14 @@
       }
     }
 
-    function addSongInTwoColumns(doc, songTitle, songInterpret, songText, songAnchor) {
-      // Zwei Spalten à 90mm (A4: 210mm - 2*15mm Rand = 180mm, also 2x90mm)
+    // Zwei-Spalten-Layout mit Seitenumbruch
+    function addSongInTwoColumns(doc, songTitle, songInterpret, songText, anchorId) {
       const left = 15, top = 30, colWidth = 90, colHeight = 250;
       let fontSizeTitle = 14;
       let fontSizeInterpret = 11;
       let fontSizeText = 10;
 
-      // Lesezeichen/Sprungziel (benötigt jsPDF >=2.5)
-      doc.text(songTitle, left, top, {maxWidth: 180, link: songAnchor});
+      // Songtitel (nur einmal, groß und fett)
       doc.setFontSize(fontSizeTitle);
       doc.setFont("helvetica", "bold");
       doc.text(songTitle, left, top);
@@ -82,7 +81,7 @@
 
       doc.setFontSize(fontSizeText);
       // Songtext umbrechen
-      const lines = doc.splitTextToSize(songText, colWidth-2); // etwas Rand
+      const lines = doc.splitTextToSize(songText, colWidth-2);
       let curX = left, curY = top + 15, col = 0;
       for(let i=0; i<lines.length; i++) {
         if(curY > top + colHeight) {
@@ -101,18 +100,19 @@
       let statusDiv = document.getElementById("status");
       statusDiv.textContent = "Erstelle PDF (das kann je nach Anzahl Songs etwas dauern)...";
 
-      // 1. Inhaltsverzeichnis vorbereiten (Song-Titel merken)
+      // Inhaltsverzeichnis vorbereiten (alphabetisch sortiert)
       let toc = [];
       for (let i = 0; i < songs.length; i++) {
         toc.push({
           title: songs[i].Song,
           interpret: songs[i].Interpret,
           anchor: "song" + (i+1),
-          page: 0 // Fügen wir später ein
+          index: i // merken, damit wir später auf den Originalsong zugreifen
         });
       }
+      toc.sort((a, b) => a.title.localeCompare(b.title, "de", { sensitivity: "base" }));
 
-      // 2. Inhaltsverzeichnis (Seite 1)
+      // Inhaltsverzeichnis (Seite 1)
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.text("Inhaltsverzeichnis", 15, 20);
@@ -121,25 +121,37 @@
       let y = 30;
       for(let i=0; i<toc.length; i++) {
         let entry = toc[i];
-        // Platz für viele Songs: Spalte/n
         if(y > 270) { doc.addPage(); y = 20; }
-        // Einfache interne Links (funktioniert in vielen PDF-Viewern, nicht allen!)
-        doc.textWithLink(`${entry.title} (${entry.interpret})`, 20, y, {name: entry.anchor});
+        let linkX = 20, linkY = y;
+        doc.text(`${entry.title} (${entry.interpret})`, linkX, linkY);
+        entry.linkCoords = {page: doc.getCurrentPageInfo().pageNumber, x: linkX, y: linkY};
         y += 8;
       }
 
-      // 3. Songs (ab Seite 2)
-      for (let i = 0; i < songs.length; i++) {
-        // Neue Seite für jeden Song (außer beim ersten, dann auf Inhaltsverzeichnis-Seite)
-        if(i > 0) doc.addPage();
+      // Songseiten (jede auf neuer Seite, damit Links eindeutig sind)
+      let songPages = [];
+      for (let i = 0; i < toc.length; i++) {
+        const song = songs[toc[i].index];
+        // Jeder Song auf neuer Seite
+        doc.addPage();
+        doc.setPage(doc.getNumberOfPages());
+        statusDiv.textContent = `Lade Songtext für "${song.Song}" (${i + 1}/${toc.length})...`;
+        let text = await fetchSongText(song.Datensatznummer);
+        // Setze Ziel für Link
+        songPages.push(doc.getCurrentPageInfo().pageNumber);
+        addSongInTwoColumns(doc, song.Song, song.Interpret, text, toc[i].anchor);
+      }
 
-        statusDiv.textContent = `Lade Songtext für "${songs[i].Song}" (${i + 1}/${songs.length})...`;
-        let text = await fetchSongText(songs[i].Datensatznummer);
-        // Setze Lesezeichen/Ziel für Link
-        doc.text("", 0, 0, {name: toc[i].anchor});
-        addSongInTwoColumns(doc, songs[i].Song, songs[i].Interpret, text, toc[i].anchor);
-
-        toc[i].page = doc.getCurrentPageInfo().pageNumber;
+      // Setze Links im Inhaltsverzeichnis nachträglich
+      for (let i = 0; i < toc.length; i++) {
+        let entry = toc[i];
+        let coords = entry.linkCoords;
+        let targetPage = songPages[i];
+        if(coords && targetPage) {
+          doc.setPage(coords.page);
+          // Link-Rechteck nur auf den Text (ca. 80mm breit, 7mm hoch)
+          doc.link(coords.x, coords.y-4, 80, 7, {pageNumber: targetPage});
+        }
       }
 
       statusDiv.textContent = "Fertig! PDF wird heruntergeladen ...";
