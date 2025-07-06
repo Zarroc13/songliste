@@ -54,35 +54,44 @@
         const url = `songs/${dsn}.txt`;
         const res = await fetch(url);
         if (!res.ok) {
-          console.warn("Fehler beim Laden:", url, res.status);
-          return "[Kein Songtext gefunden]";
+          return null;
         }
-        return await res.text();
+        const txt = await res.text();
+        if (!txt.trim()) return null;
+        return txt;
       } catch (err) {
-        console.error("Fehler beim Fetch:", err);
-        return "[Fehler beim Laden des Songtexts]";
+        return null;
       }
     }
 
-    // Zwei-Spalten-Layout mit Seitenumbruch
-    function addSongInTwoColumns(doc, songTitle, songInterpret, songText, anchorId) {
+    // Zwei-Spalten-Layout mit Seitenumbruch und "Zurück zum Inhaltsverzeichnis"-Link
+    function addSongInTwoColumns(doc, songTitle, songInterpret, songText, anchorId, tocPage) {
       const left = 15, top = 30, colWidth = 90, colHeight = 250;
       let fontSizeTitle = 14;
       let fontSizeInterpret = 11;
       let fontSizeText = 10;
 
-      // Songtitel (nur einmal, groß und fett)
+      // Songtitel fett, groß, EINMAL
       doc.setFontSize(fontSizeTitle);
       doc.setFont("helvetica", "bold");
       doc.text(songTitle, left, top);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(fontSizeInterpret);
-      if(songInterpret) doc.text("Interpret: " + songInterpret, left, top+6);
+      let yInterpret = top + 6;
+      if(songInterpret) doc.text("Interpret: " + songInterpret, left, yInterpret);
 
+      // "Zurück zum Inhaltsverzeichnis"-Link (setzt auf die erste Seite)
+      doc.setFontSize(10);
+      const backText = "← Zurück zum Inhaltsverzeichnis";
+      const backY = songInterpret ? yInterpret + 8 : top + 8;
+      doc.setTextColor(0, 0, 255);
+      doc.textWithLink(backText, left, backY, { pageNumber: tocPage });
+      doc.setTextColor(0,0,0);
+
+      // Songtext umbrechen & in zwei Spalten
       doc.setFontSize(fontSizeText);
-      // Songtext umbrechen
       const lines = doc.splitTextToSize(songText, colWidth-2);
-      let curX = left, curY = top + 15, col = 0;
+      let curX = left, curY = backY + 8, col = 0;
       for(let i=0; i<lines.length; i++) {
         if(curY > top + colHeight) {
           // Spalte wechseln oder Seite neu
@@ -98,54 +107,58 @@
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
       let statusDiv = document.getElementById("status");
-      statusDiv.textContent = "Erstelle PDF (das kann je nach Anzahl Songs etwas dauern)...";
+      statusDiv.textContent = "Lade Songtexte und bereite Export vor ...";
 
-      // Inhaltsverzeichnis vorbereiten (alphabetisch sortiert)
-      let toc = [];
-      for (let i = 0; i < songs.length; i++) {
-        toc.push({
-          title: songs[i].Song,
-          interpret: songs[i].Interpret,
-          anchor: "song" + (i+1),
-          index: i // merken, damit wir später auf den Originalsong zugreifen
-        });
+      // 1. Nur Songs mit vorhandenem Text
+      let songsWithText = [];
+      for (let s of songs) {
+        statusDiv.textContent = `Prüfe "${s.Song}" ...`;
+        let text = await fetchSongText(s.Datensatznummer);
+        if (text) {
+          songsWithText.push({ ...s, text });
+        }
       }
-      toc.sort((a, b) => a.title.localeCompare(b.title, "de", { sensitivity: "base" }));
 
-      // Inhaltsverzeichnis (Seite 1)
+      // 2. Alphabetisch sortieren
+      songsWithText.sort((a, b) => a.Song.localeCompare(b.Song, "de", { sensitivity: "base" }));
+
+      // 3. Inhaltsverzeichnis (Seite 1)
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.text("Inhaltsverzeichnis", 15, 20);
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
       let y = 30;
-      for(let i=0; i<toc.length; i++) {
-        let entry = toc[i];
+      let tocLinks = [];
+      for(let i=0; i<songsWithText.length; i++) {
+        let entry = songsWithText[i];
         if(y > 270) { doc.addPage(); y = 20; }
         let linkX = 20, linkY = y;
-        doc.text(`${entry.title} (${entry.interpret})`, linkX, linkY);
-        entry.linkCoords = {page: doc.getCurrentPageInfo().pageNumber, x: linkX, y: linkY};
+        doc.text(`${entry.Song} (${entry.Interpret})`, linkX, linkY);
+        tocLinks.push({songIndex: i, page: doc.getCurrentPageInfo().pageNumber, x: linkX, y: linkY});
         y += 8;
       }
+      const tocPage = 1;
 
-      // Songseiten (jede auf neuer Seite, damit Links eindeutig sind)
+      // 4. Songseiten (jede auf neuer Seite, damit Links eindeutig sind)
       let songPages = [];
-      for (let i = 0; i < toc.length; i++) {
-        const song = songs[toc[i].index];
-        // Jeder Song auf neuer Seite
+      for (let i = 0; i < songsWithText.length; i++) {
         doc.addPage();
         doc.setPage(doc.getNumberOfPages());
-        statusDiv.textContent = `Lade Songtext für "${song.Song}" (${i + 1}/${toc.length})...`;
-        let text = await fetchSongText(song.Datensatznummer);
-        // Setze Ziel für Link
         songPages.push(doc.getCurrentPageInfo().pageNumber);
-        addSongInTwoColumns(doc, song.Song, song.Interpret, text, toc[i].anchor);
+        addSongInTwoColumns(
+          doc, 
+          songsWithText[i].Song, 
+          songsWithText[i].Interpret, 
+          songsWithText[i].text, 
+          "song" + (i+1),
+          tocPage
+        );
       }
 
-      // Setze Links im Inhaltsverzeichnis nachträglich
-      for (let i = 0; i < toc.length; i++) {
-        let entry = toc[i];
-        let coords = entry.linkCoords;
+      // 5. Setze Links im Inhaltsverzeichnis nachträglich
+      for (let i = 0; i < tocLinks.length; i++) {
+        let coords = tocLinks[i];
         let targetPage = songPages[i];
         if(coords && targetPage) {
           doc.setPage(coords.page);
