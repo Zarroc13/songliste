@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Songliste PDF-Export mit Songtexten</title>
+  <title>Songliste PDF-Export mit Songtexten & Inhaltsverzeichnis</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
@@ -14,7 +14,7 @@
   </style>
 </head>
 <body>
-  <h1>Songliste PDF-Export (inkl. Songtexte)</h1>
+  <h1>Songliste PDF-Export (inkl. Songtexte & Inhaltsverzeichnis)</h1>
   <button id="export-pdf-btn" disabled>Exportiere alle Songs als PDF</button>
   <div id="status">Lade Songliste...</div>
   <div id="song-list"></div>
@@ -51,7 +51,7 @@
 
     async function fetchSongText(dsn) {
       try {
-        const url = `songs/${dsn}.txt`; // <-- hier klein!
+        const url = `songs/${dsn}.txt`;
         const res = await fetch(url);
         if (!res.ok) {
           console.warn("Fehler beim Laden:", url, res.status);
@@ -64,33 +64,82 @@
       }
     }
 
+    function addSongInTwoColumns(doc, songTitle, songInterpret, songText, songAnchor) {
+      // Zwei Spalten à 90mm (A4: 210mm - 2*15mm Rand = 180mm, also 2x90mm)
+      const left = 15, top = 30, colWidth = 90, colHeight = 250;
+      let fontSizeTitle = 14;
+      let fontSizeInterpret = 11;
+      let fontSizeText = 10;
+
+      // Lesezeichen/Sprungziel (benötigt jsPDF >=2.5)
+      doc.text(songTitle, left, top, {maxWidth: 180, link: songAnchor});
+      doc.setFontSize(fontSizeTitle);
+      doc.setFont("helvetica", "bold");
+      doc.text(songTitle, left, top);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(fontSizeInterpret);
+      if(songInterpret) doc.text("Interpret: " + songInterpret, left, top+6);
+
+      doc.setFontSize(fontSizeText);
+      // Songtext umbrechen
+      const lines = doc.splitTextToSize(songText, colWidth-2); // etwas Rand
+      let curX = left, curY = top + 15, col = 0;
+      for(let i=0; i<lines.length; i++) {
+        if(curY > top + colHeight) {
+          // Spalte wechseln oder Seite neu
+          if(col === 0) { curX = left + colWidth; curY = top + 15; col = 1; }
+          else { doc.addPage(); curX = left; curY = top + 15; col = 0; }
+        }
+        doc.text(lines[i], curX, curY);
+        curY += 6;
+      }
+    }
+
     async function exportSongsAsPDF(songs) {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
       let statusDiv = document.getElementById("status");
       statusDiv.textContent = "Erstelle PDF (das kann je nach Anzahl Songs etwas dauern)...";
 
+      // 1. Inhaltsverzeichnis vorbereiten (Song-Titel merken)
+      let toc = [];
       for (let i = 0; i < songs.length; i++) {
-        const song = songs[i];
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        doc.text(song.Song, 12, 20);
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        if (song.Interpret)
-          doc.text("Interpret: " + song.Interpret, 12, 28);
+        toc.push({
+          title: songs[i].Song,
+          interpret: songs[i].Interpret,
+          anchor: "song" + (i+1),
+          page: 0 // Fügen wir später ein
+        });
+      }
 
-        // Songtext laden
-        statusDiv.textContent = `Lade Songtext für "${song.Song}" (${i + 1}/${songs.length})...`;
-        let text = await fetchSongText(song.Datensatznummer);
+      // 2. Inhaltsverzeichnis (Seite 1)
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text("Inhaltsverzeichnis", 15, 20);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      let y = 30;
+      for(let i=0; i<toc.length; i++) {
+        let entry = toc[i];
+        // Platz für viele Songs: Spalte/n
+        if(y > 270) { doc.addPage(); y = 20; }
+        // Einfache interne Links (funktioniert in vielen PDF-Viewern, nicht allen!)
+        doc.textWithLink(`${entry.title} (${entry.interpret})`, 20, y, {name: entry.anchor});
+        y += 8;
+      }
 
-        // Text umbrechen für PDF
-        let y = song.Interpret ? 38 : 32;
-        const lines = doc.splitTextToSize(text, 180);
-        doc.text(lines, 12, y);
+      // 3. Songs (ab Seite 2)
+      for (let i = 0; i < songs.length; i++) {
+        // Neue Seite für jeden Song (außer beim ersten, dann auf Inhaltsverzeichnis-Seite)
+        if(i > 0) doc.addPage();
 
-        // Neue Seite, außer beim letzten Song
-        if (i < songs.length - 1) doc.addPage();
+        statusDiv.textContent = `Lade Songtext für "${songs[i].Song}" (${i + 1}/${songs.length})...`;
+        let text = await fetchSongText(songs[i].Datensatznummer);
+        // Setze Lesezeichen/Ziel für Link
+        doc.text("", 0, 0, {name: toc[i].anchor});
+        addSongInTwoColumns(doc, songs[i].Song, songs[i].Interpret, text, toc[i].anchor);
+
+        toc[i].page = doc.getCurrentPageInfo().pageNumber;
       }
 
       statusDiv.textContent = "Fertig! PDF wird heruntergeladen ...";
