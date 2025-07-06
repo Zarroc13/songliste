@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Songliste Export</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 30px auto; }
+    h1 { text-align: center; }
+    #export-pdf-btn { margin: 20px 0; }
+    ul { line-height: 1.7; }
+  </style>
+</head>
+<body>
+  <h1>Songliste (Export)</h1>
+  <button id="export-pdf-btn">Als PDF exportieren</button>
+  <ul id="song-list"></ul>
+
+  <script>
+    // Passe ggf. den Pfad zur CSV-Datei an!
+    const CSV_PATH = 'songs/songliste.csv';
+
+    let songTitles = [];
+
+    function loadSongs() {
+      Papa.parse(CSV_PATH, {
+        download: true,
+        header: true,
+        complete: function(results) {
+          // Nur Songs mit Eintrag ("Song"-Feld nicht leer)
+          songTitles = results.data
+            .filter(row => row["Song"] && row["Song"].trim() !== "")
+            .map(row => row["Song"].trim());
+
+          renderList();
+        }
+      });
+    }
+
+    function renderList() {
+      const ul = document.getElementById("song-list");
+      ul.innerHTML = "";
+      songTitles.forEach(title => {
+        const li = document.createElement("li");
+        li.textContent = title;
+        ul.appendChild(li);
+      });
+    }
+
+    document.getElementById("export-pdf-btn").addEventListener("click", function() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(14);
+      doc.text("Songliste", 10, 10);
+
+      let y = 20;
+      songTitles.forEach((title, i) => {
+        doc.text(`${i + 1}. ${title}`, 10, y);
+        y += 10;
+        if (y > 280) {
+          doc.addPage();
+          y = 20;
+        }
+      });
+      doc.save("songliste.pdf");
+    });
+
+    loadSongs();
+  </script>
+</body>
+</html>
