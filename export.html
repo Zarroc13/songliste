@@ -1,63 +1,169 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>Songliste Export</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
+  <meta charset="UTF-8" />
+  <title>Songliste PDF-Export</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: 30px auto; }
-    h1 { text-align: center; }
-    #export-pdf-btn { margin: 20px 0; }
-    ul { line-height: 1.7; }
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      background: #f8f8f8;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+    h1 {
+      text-align: center;
+    }
+    .filter-bar {
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      justify-content: center;
+    }
+    .filter-bar input[type="text"] {
+      padding: 0.3rem;
+      font-size: 1rem;
+      width: 200px;
+    }
+    .filter-bar button {
+      padding: 0.3rem 1rem;
+      font-size: 1rem;
+      color: white;
+      background: #007acc;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .filter-bar button.active {
+      background: #005999;
+    }
+    #song-list {
+      margin-top: 2rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.07);
+      padding: 1rem;
+    }
+    ul {
+      line-height: 1.7;
+      margin: 0;
+      padding-left: 1.3em;
+    }
   </style>
 </head>
 <body>
-  <h1>Songliste (Export)</h1>
-  <button id="export-pdf-btn">Als PDF exportieren</button>
-  <ul id="song-list"></ul>
-
+  <h1>Songliste (PDF-Export)</h1>
+  <div class="filter-bar">
+    <label>
+      Suche:
+      <input type="text" id="search-input" placeholder="Song oder Interpret">
+    </label>
+    <button id="filter-skill-btn" class="active" title="Nur Songs ab Können 5">Nur Können ab 5</button>
+    <button id="show-all-btn" title="Alle Songs anzeigen">Alle anzeigen</button>
+    <button id="export-pdf-btn" title="Als PDF herunterladen" disabled>Export als PDF</button>
+  </div>
+  <div id="song-list">Lade Daten...</div>
   <script>
-    // Passe ggf. den Pfad zur CSV-Datei an!
-    const CSV_PATH = 'songs/songliste.csv';
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
+    let allData = [];
+    let showAll = false;
+    let currentSort = { key: "Song", direction: "asc" };
+    let currentFiltered = [];
 
-    let songTitles = [];
-
-    function loadSongs() {
-      Papa.parse(CSV_PATH, {
-        download: true,
-        header: true,
-        complete: function(results) {
-          // Nur Songs mit Eintrag ("Song"-Feld nicht leer)
-          songTitles = results.data
-            .filter(row => row["Song"] && row["Song"].trim() !== "")
-            .map(row => row["Song"].trim());
-
-          renderList();
-        }
+    async function loadCSV(url) {
+      const res = await fetch(url);
+      const text = await res.text();
+      const result = Papa.parse(text, { header: true, skipEmptyLines: true });
+      return result.data.map(obj => {
+        obj["Datensatznummer"] = (obj["Datensatznummer"] || "").trim();
+        obj["Können (1-10)"] = parseInt(obj["Können (1-10)"], 10) || 0;
+        obj["Song"] = (obj["Song"] || "").trim();
+        obj["Interpret"] = (obj["Interpret"] || "").trim();
+        obj["Sprache"] = (obj["Sprache"] || "").trim();
+        obj["Kapo"] = (obj["Kapo"] || "").trim();
+        return obj;
       });
     }
 
-    function renderList() {
-      const ul = document.getElementById("song-list");
-      ul.innerHTML = "";
-      songTitles.forEach(title => {
+    function sortData(data, key, direction) {
+      const dir = direction === "asc" ? 1 : -1;
+      return [...data].sort((a, b) => {
+        let aVal = a[key] || "";
+        let bVal = b[key] || "";
+        if (key === "Können (1-10)") {
+          return dir * (aVal - bVal);
+        }
+        return dir * aVal.localeCompare(bVal, "de", { sensitivity: "base" });
+      });
+    }
+
+    function filterAndDisplay() {
+      const search = document.getElementById("search-input").value.trim().toLowerCase();
+      let filtered = allData.filter(row => {
+        // Nur Songs mit Titel anzeigen!
+        const hasTitle = row["Song"] && row["Song"].trim() !== "";
+        const matchesSearch =
+          row["Song"].toLowerCase().includes(search) ||
+          row["Interpret"].toLowerCase().includes(search);
+        const enoughSkill = showAll ? true : row["Können (1-10)"] >= 5;
+        return hasTitle && matchesSearch && enoughSkill;
+      });
+      filtered = sortData(filtered, currentSort.key, currentSort.direction);
+
+      currentFiltered = filtered;
+      renderList(filtered);
+      document.getElementById("export-pdf-btn").disabled = filtered.length === 0;
+    }
+
+    function renderList(list) {
+      const container = document.getElementById("song-list");
+      if (list.length === 0) {
+        container.innerHTML = "<p>Keine Daten gefunden.</p>";
+        return;
+      }
+      const ul = document.createElement("ul");
+      list.forEach(row => {
         const li = document.createElement("li");
-        li.textContent = title;
+        li.textContent = `${row["Song"]} (${row["Interpret"]})`;
         ul.appendChild(li);
       });
+      container.innerHTML = "";
+      container.appendChild(ul);
     }
 
+    document.getElementById("search-input").addEventListener("input", filterAndDisplay);
+    document.getElementById("filter-skill-btn").addEventListener("click", function() {
+      showAll = false;
+      this.classList.add("active");
+      document.getElementById("show-all-btn").classList.remove("active");
+      filterAndDisplay();
+    });
+    document.getElementById("show-all-btn").addEventListener("click", function() {
+      showAll = true;
+      this.classList.add("active");
+      document.getElementById("filter-skill-btn").classList.remove("active");
+      filterAndDisplay();
+    });
+
     document.getElementById("export-pdf-btn").addEventListener("click", function() {
+      if (currentFiltered.length === 0) {
+        alert("Keine Songs zum Exportieren!");
+        return;
+      }
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       doc.setFontSize(14);
       doc.text("Songliste", 10, 10);
 
       let y = 20;
-      songTitles.forEach((title, i) => {
-        doc.text(`${i + 1}. ${title}`, 10, y);
+      currentFiltered.forEach((row, i) => {
+        doc.text(`${i + 1}. ${row["Song"]} (${row["Interpret"]})`, 10, y);
         y += 10;
+        // Falls die Seite voll ist, neue Seite
         if (y > 280) {
           doc.addPage();
           y = 20;
@@ -66,7 +172,17 @@
       doc.save("songliste.pdf");
     });
 
-    loadSongs();
+    // Initial laden
+    loadCSV(csvUrl)
+      .then(data => {
+        allData = data;
+        showAll = false;
+        filterAndDisplay();
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById("song-list").textContent = "Fehler beim Laden.";
+      });
   </script>
 </body>
 </html>
