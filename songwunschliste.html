@@ -3,107 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <title>Songwunschliste</title>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
-    body {
-      font-family: sans-serif;
-      padding: 2rem;
-      background: #f8f8f8;
-    }
-    nav {
-      margin-bottom: 1.5rem;
-    }
-    .filter-bar {
-      margin-bottom: 1.5rem;
-    }
-    .filter-bar input[type="text"] {
-      padding: 0.3rem;
-      font-size: 1rem;
-      width: 200px;
-    }
-    .filter-bar button {
-      margin-left: 1rem;
-      padding: 0.3rem 1rem;
-      font-size: 1rem;
-      color: white;
-      background: #007acc;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .filter-bar button.active {
-      background: #005999;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    th, td {
-      padding: 0.5rem;
-      border: 1px solid #ccc;
-      text-align: left;
-    }
-    th {
-      background: #007acc;
-      color: white;
-      cursor: pointer;
-      user-select: none;
-    }
-    th.sort-asc::after { content: " ▲"; }
-    th.sort-desc::after { content: " ▼"; }
-    .add-btn {
-      padding: 0.2rem 0.8rem;
-      border: none;
-      border-radius: 4px;
-      background: #007acc;
-      color: white;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-    .add-btn[disabled] {
-      background: #aaa;
-      cursor: default;
-    }
-    .wishlist-container {
-      background: #fff;
-      box-shadow: 0 0 10px rgba(0,0,0,0.08);
-      padding: 1rem;
-      border-radius: 8px;
-      margin-top: 2rem;
+    body { font-family: sans-serif; padding: 2rem; background: #f8f8f8; }
+    nav { margin-bottom: 1.5rem; }
+    h1 { margin-bottom: 1.5rem; }
+    .iframe-wrap { 
+      background: #fff; 
+      box-shadow: 0 0 10px rgba(0,0,0,0.08); 
+      border-radius: 8px; 
+      padding: 1rem; 
       margin-bottom: 2rem;
     }
-    .wishlist-container h2 {
-      margin-top: 0;
-    }
-    .wishlist-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-    .wishlist-list li {
-      margin-bottom: 0.5rem;
-      padding: 0.2rem 0.6rem;
-      background: #f0f8ff;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-    }
-    .remove-btn {
-      margin-left: 0.7em;
-      background: #aa3333;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      padding: 0.15rem 0.7rem;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-    .empty {
-      color: #888;
-      font-style: italic;
-    }
+    .info { margin-bottom: 2rem; color: #555;}
   </style>
 </head>
 <body>
@@ -111,217 +22,16 @@
     <a href="index.html">Zurück zur Songliste</a>
   </nav>
   <h1>Songwunschliste</h1>
-  <div class="filter-bar">
-    <label>
-      Suche:
-      <input type="text" id="search-input" placeholder="Song oder Interpret">
-    </label>
-    <button id="filter-skill-btn" class="active" title="Nur Songs ab Können 5">Nur Können ab 5</button>
-    <button id="show-all-btn" title="Alle Songs anzeigen">Alle anzeigen</button>
+  <div class="info">
+    Die Songwünsche werden in einer gemeinsamen Google Tabelle gespeichert.<br>
+    <a href="https://docs.google.com/spreadsheets/d/1Ci3GXnAi9IIyzYTM5Qsvq0rIAV52v0HJwGNlbR1NDMM/edit?usp=sharing" target="_blank">
+      Songwunschliste direkt in Google ansehen/bearbeiten
+    </a>
   </div>
-  <div id="table-container">Wird geladen...</div>
-  <div class="wishlist-container">
-    <h2>Deine Songwunschliste</h2>
-    <ul id="wishlist" class="wishlist-list"></ul>
-    <button id="clear-wishlist" style="display:none;">Wunschliste leeren</button>
+  <div class="iframe-wrap">
+    <iframe 
+      src="https://docs.google.com/spreadsheets/d/e/2PACX-1vTV6SyMknm-bSgRqRemcrxU9ysx1LgonogJhe8DfLu_fG9R9dqs066jeuo6SkUkYAXZUG7mxdF2MYr2/pubhtml?widget=true&amp;headers=false" 
+      width="900" height="450"></iframe>
   </div>
-  <script>
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
-    let allData = [];
-    let showAll = false;
-    let currentSort = { key: "Song", direction: "asc" };
-    let wishlist = [];
-
-    function loadWishlist() {
-      const data = localStorage.getItem("songWishlist");
-      wishlist = data ? JSON.parse(data) : [];
-    }
-
-    function saveWishlist() {
-      localStorage.setItem("songWishlist", JSON.stringify(wishlist));
-    }
-
-    function addToWishlist(id) {
-      if (!wishlist.includes(id)) {
-        wishlist.push(id);
-        saveWishlist();
-        filterAndDisplay();
-        renderWishlist();
-      }
-    }
-
-    function removeFromWishlist(id) {
-      wishlist = wishlist.filter(sid => sid !== id);
-      saveWishlist();
-      filterAndDisplay();
-      renderWishlist();
-    }
-
-    function clearWishlist() {
-      wishlist = [];
-      saveWishlist();
-      filterAndDisplay();
-      renderWishlist();
-    }
-
-    function sortData(data, key, direction) {
-      const dir = direction === "asc" ? 1 : -1;
-      return [...data].sort((a, b) => {
-        let aVal = a[key] || "";
-        let bVal = b[key] || "";
-        if (key === "Können (1-10)") {
-          return dir * (aVal - bVal);
-        }
-        return dir * aVal.localeCompare(bVal, "de", { sensitivity: "base" });
-      });
-    }
-
-    function buildTable(data) {
-      const container = document.getElementById("table-container");
-      if (data.length === 0) {
-        container.innerHTML = "<p>Keine Daten gefunden.</p>";
-        return;
-      }
-
-      const table = document.createElement("table");
-      const thead = document.createElement("thead");
-      const tbody = document.createElement("tbody");
-      const headers = ["Song", "Interpret", "Sprache", "Können (1-10)", "Kapo", "Aktion"];
-
-      // Tabellenkopf mit Sortierfunktion
-      const headerRow = document.createElement("tr");
-      headers.forEach(key => {
-        const th = document.createElement("th");
-        th.textContent = key.replace(" (1-10)","");
-        if (key === currentSort.key) th.classList.add("sort-" + currentSort.direction);
-        if (key !== "Aktion") {
-          th.onclick = () => {
-            if (currentSort.key === key) {
-              currentSort.direction = currentSort.direction === "asc" ? "desc" : "asc";
-            } else {
-              currentSort.key = key;
-              currentSort.direction = "asc";
-            }
-            filterAndDisplay();
-          };
-        }
-        headerRow.appendChild(th);
-      });
-      thead.appendChild(headerRow);
-
-      // Datenzeilen
-      data.forEach(row => {
-        const tr = document.createElement("tr");
-        const songCell = document.createElement("td");
-        songCell.textContent = row["Song"];
-        tr.appendChild(songCell);
-
-        ["Interpret", "Sprache", "Können (1-10)", "Kapo"].forEach(key => {
-          const td = document.createElement("td");
-          td.textContent = row[key] || "";
-          tr.appendChild(td);
-        });
-
-        // Aktion: Button zur Wunschliste
-        const actionTd = document.createElement("td");
-        const btn = document.createElement("button");
-        if (wishlist.includes(row["Datensatznummer"])) {
-          btn.textContent = "Hinzugefügt";
-          btn.disabled = true;
-        } else {
-          btn.textContent = "Zur Wunschliste";
-          btn.onclick = () => addToWishlist(row["Datensatznummer"]);
-        }
-        btn.className = "add-btn";
-        actionTd.appendChild(btn);
-        tr.appendChild(actionTd);
-
-        tbody.appendChild(tr);
-      });
-
-      table.appendChild(thead);
-      table.appendChild(tbody);
-      container.innerHTML = "";
-      container.appendChild(table);
-    }
-
-    function filterAndDisplay() {
-      const search = document.getElementById("search-input").value.trim().toLowerCase();
-      let filtered = allData.filter(row => {
-        const hasTitle = row["Song"] && row["Song"].trim() !== "";
-        const matchesSearch =
-          row["Song"].toLowerCase().includes(search) ||
-          row["Interpret"].toLowerCase().includes(search);
-        const enoughSkill = showAll ? true : row["Können (1-10)"] >= 5;
-        return hasTitle && matchesSearch && enoughSkill;
-      });
-
-      filtered = sortData(filtered, currentSort.key, currentSort.direction);
-      buildTable(filtered);
-    }
-
-    function renderWishlist() {
-      const ul = document.getElementById("wishlist");
-      ul.innerHTML = "";
-      if (wishlist.length === 0) {
-        ul.innerHTML = "<li class='empty'>Noch keine Songs ausgewählt.</li>";
-        document.getElementById("clear-wishlist").style.display = "none";
-        return;
-      }
-      wishlist.forEach(id => {
-        const song = allData.find(row => row["Datensatznummer"] === id);
-        if (song) {
-          const li = document.createElement("li");
-          li.textContent = `${song["Song"]} (${song["Interpret"]})`;
-          const removeBtn = document.createElement("button");
-          removeBtn.textContent = "Entfernen";
-          removeBtn.className = "remove-btn";
-          removeBtn.onclick = () => removeFromWishlist(id);
-          li.appendChild(removeBtn);
-          ul.appendChild(li);
-        }
-      });
-      document.getElementById("clear-wishlist").style.display = "";
-    }
-
-    document.getElementById("search-input").addEventListener("input", filterAndDisplay);
-    document.getElementById("filter-skill-btn").addEventListener("click", function() {
-      showAll = false;
-      this.classList.add("active");
-      document.getElementById("show-all-btn").classList.remove("active");
-      filterAndDisplay();
-    });
-    document.getElementById("show-all-btn").addEventListener("click", function() {
-      showAll = true;
-      this.classList.add("active");
-      document.getElementById("filter-skill-btn").classList.remove("active");
-      filterAndDisplay();
-    });
-    document.getElementById("clear-wishlist").onclick = clearWishlist;
-
-    // Initialisieren
-    loadWishlist();
-    fetch(csvUrl)
-      .then(res => res.text())
-      .then(text => {
-        const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-        allData = result.data.map(obj => {
-          obj["Datensatznummer"] = (obj["Datensatznummer"] || "").trim();
-          obj["Können (1-10)"] = parseInt(obj["Können (1-10)"], 10) || 0;
-          obj["Song"] = (obj["Song"] || "").trim();
-          obj["Interpret"] = (obj["Interpret"] || "").trim();
-          obj["Sprache"] = (obj["Sprache"] || "").trim();
-          obj["Kapo"] = (obj["Kapo"] || "").trim();
-          return obj;
-        });
-        showAll = false;
-        filterAndDisplay();
-        renderWishlist();
-      })
-      .catch(err => {
-        console.error(err);
-        document.getElementById("table-container").textContent = "Fehler beim Laden.";
-      });
-  </script>
 </body>
 </html>
