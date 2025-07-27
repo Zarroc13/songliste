@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Songwunschliste</title>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+      background: #f8f8f8;
+    }
+    nav {
+      margin-bottom: 2rem;
+    }
+    .song-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+    }
+    th, td {
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
+    th {
+      background: #007acc;
+      color: white;
+    }
+    button.add-btn, button.remove-btn {
+      padding: 0.2rem 0.8rem;
+      border: none;
+      border-radius: 4px;
+      background: #007acc;
+      color: white;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    button.remove-btn {
+      background: #aa3333;
+      margin-left: 0.5rem;
+    }
+    .wishlist-container {
+      background: #ffffffcc;
+      box-shadow: 0 0 8px rgba(0,0,0,0.08);
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+    }
+    .wishlist-container h2 {
+      margin-top: 0;
+    }
+    .empty {
+      color: #888;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="index.html">Zurück zur Songliste</a>
+  </nav>
+  <h1>Songwunschliste</h1>
+  <p>Füge Songs zur Wunschliste hinzu, die du gerne hören möchtest. Die Liste bleibt auf diesem Gerät erhalten.</p>
+  <div id="table-container">Wird geladen...</div>
+  <div class="wishlist-container">
+    <h2>Deine Songwunschliste</h2>
+    <ul id="wishlist"></ul>
+    <button id="clear-wishlist" style="display:none;">Wunschliste leeren</button>
+  </div>
+  <script>
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
+    let allData = [];
+    let wishlist = [];
+
+    function loadWishlist() {
+      const data = localStorage.getItem("songWishlist");
+      wishlist = data ? JSON.parse(data) : [];
+    }
+
+    function saveWishlist() {
+      localStorage.setItem("songWishlist", JSON.stringify(wishlist));
+    }
+
+    function addToWishlist(id) {
+      if (!wishlist.includes(id)) {
+        wishlist.push(id);
+        saveWishlist();
+        renderWishlist();
+      }
+    }
+
+    function removeFromWishlist(id) {
+      wishlist = wishlist.filter(sid => sid !== id);
+      saveWishlist();
+      renderWishlist();
+    }
+
+    function clearWishlist() {
+      wishlist = [];
+      saveWishlist();
+      renderWishlist();
+    }
+
+    function renderTable(data) {
+      const container = document.getElementById("table-container");
+      if (data.length === 0) {
+        container.innerHTML = "<p>Keine Songs gefunden.</p>";
+        return;
+      }
+      const table = document.createElement("table");
+      table.className = "song-table";
+      const thead = document.createElement("thead");
+      const headers = ["Song", "Interpret", "Sprache", "Können (1-10)", "Kapo", "Aktion"];
+      const headerRow = document.createElement("tr");
+      headers.forEach(h => {
+        const th = document.createElement("th");
+        th.textContent = h.replace(" (1-10)", "");
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+      data.forEach(row => {
+        if (!(row["Song"] && row["Datensatznummer"])) return;
+        const tr = document.createElement("tr");
+        ["Song", "Interpret", "Sprache", "Können (1-10)", "Kapo"].forEach(key => {
+          const td = document.createElement("td");
+          td.textContent = row[key] || "";
+          tr.appendChild(td);
+        });
+        const actionTd = document.createElement("td");
+        const btn = document.createElement("button");
+        btn.textContent = wishlist.includes(row["Datensatznummer"]) ? "Schon hinzugefügt" : "Zur Wunschliste";
+        btn.className = "add-btn";
+        btn.disabled = wishlist.includes(row["Datensatznummer"]);
+        btn.onclick = () => addToWishlist(row["Datensatznummer"]);
+        actionTd.appendChild(btn);
+        tr.appendChild(actionTd);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.innerHTML = "";
+      container.appendChild(table);
+    }
+
+    function renderWishlist() {
+      const ul = document.getElementById("wishlist");
+      ul.innerHTML = "";
+      if (wishlist.length === 0) {
+        ul.innerHTML = "<li class='empty'>Noch keine Songs ausgewählt.</li>";
+        document.getElementById("clear-wishlist").style.display = "none";
+        return;
+      }
+      wishlist.forEach(id => {
+        const song = allData.find(row => row["Datensatznummer"] === id);
+        if (song) {
+          const li = document.createElement("li");
+          li.textContent = `${song["Song"]} (${song["Interpret"]})`;
+          const removeBtn = document.createElement("button");
+          removeBtn.textContent = "Entfernen";
+          removeBtn.className = "remove-btn";
+          removeBtn.onclick = () => removeFromWishlist(id);
+          li.appendChild(removeBtn);
+          ul.appendChild(li);
+        }
+      });
+      document.getElementById("clear-wishlist").style.display = "";
+    }
+
+    document.getElementById("clear-wishlist").onclick = clearWishlist;
+
+    async function loadCSV(url) {
+      const res = await fetch(url);
+      const text = await res.text();
+      const result = Papa.parse(text, { header: true, skipEmptyLines: true });
+      return result.data.map(obj => {
+        obj["Datensatznummer"] = (obj["Datensatznummer"] || "").trim();
+        obj["Können (1-10)"] = parseInt(obj["Können (1-10)"], 10) || 0;
+        obj["Song"] = (obj["Song"] || "").trim();
+        obj["Interpret"] = (obj["Interpret"] || "").trim();
+        obj["Sprache"] = (obj["Sprache"] || "").trim();
+        obj["Kapo"] = (obj["Kapo"] || "").trim();
+        return obj;
+      });
+    }
+
+    // Initialisieren
+    loadWishlist();
+    loadCSV(csvUrl)
+      .then(data => {
+        allData = data;
+        renderTable(allData);
+        renderWishlist();
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById("table-container").textContent = "Fehler beim Laden.";
+      });
+  </script>
+</body>
+</html>
