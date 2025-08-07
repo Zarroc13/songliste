@@ -1,7 +1,7 @@
 
 
 [Intro]
-[Am] [D][C[C]][A[D]m]
+[Am] C D Am C F Am 
 
 [Verse 1]
 [Am]   I [C]hurt mys[D]elf to[Am]day   to [C]see if [D]I still [Am]feel
@@ -18,7 +18,7 @@ And [Am]you could have it a[F]ll   [G]My empire of dir[G]t
 
 
 [Transition]
-[Am][D][C][C][Am[D]]
+[Am][D][C][C][D][Am]
 
 [Verse 2]
 [Am]   I [C]wear this [D]crown of [Am]thorns   u[C]pon my [D]liar's c[Am]hair
