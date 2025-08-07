@@ -170,6 +170,8 @@
     let scrollSpeed = 1; // px/frame, berechnet aus speedValue
     let scrollDelay = 100; // ms, berechnet aus speedValue
 
+    let currentSongFromSheet = null; // Songdaten aus Sheet für Titel/Interpret
+
     // Schrittweite und Delay je nach Stufe (1-10) – Werte ggf. anpassen!
     function computeScrollSettings(val) {
       // Skalen für Mobil und Desktop getrennt
@@ -262,7 +264,9 @@
         .then(res => res.text())
         .then(csvText => {
           const result = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+          // Flexible Spaltennamen-Findung (wegen evtl. Leerzeichen)
           const song = result.data.find(obj => (obj["Datensatznummer"] || "").trim() === id);
+          currentSongFromSheet = song;
           if (song && song["AutoscrollSpeed"]) {
             let sheetVal = parseInt(song["AutoscrollSpeed"], 10);
             if (isNaN(sheetVal) || sheetVal < 1 || sheetVal > 10) sheetVal = 3;
@@ -285,17 +289,19 @@
         })
         .then(text => {
           if (!text) return;
-          const lines = text.split('\n');
-          if (lines.length > 0) {
-            titleEl.textContent = lines[0].trim();
-            const songBody = lines.slice(1).join('\n').trim();
-            textEl.innerHTML = highlightChords(songBody);
-            controlsEl.style.display = 'flex';
-          } else {
-            titleEl.textContent = `Song ID ${id}`;
-            textEl.textContent = text;
-            controlsEl.style.display = 'none';
+          // Titel und Interpret aus der Tabelle:
+          if (currentSongFromSheet) {
+            // Flexible Spaltennamen-Findung (wegen evtl. Leerzeichen)
+            const songKey = Object.keys(currentSongFromSheet).find(k => k.trim().toLowerCase() === "song");
+            const interpretKey = Object.keys(currentSongFromSheet).find(k => k.trim().toLowerCase() === "interpret");
+            let header = currentSongFromSheet[songKey] || "";
+            if (interpretKey && currentSongFromSheet[interpretKey]) {
+              header += " – " + currentSongFromSheet[interpretKey];
+            }
+            titleEl.textContent = header.trim();
           }
+          textEl.innerHTML = highlightChords(text.trim());
+          controlsEl.style.display = 'flex';
         })
         .catch(err => {
           if (err !== 'redirect') {
