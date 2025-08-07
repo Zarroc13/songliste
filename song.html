@@ -100,7 +100,7 @@
       border-radius: 3px;
     }
     #random-song-btn {
-      display: none;
+      display: block;
       margin: 1rem auto;
       background: #007acc;
       color: #fff;
@@ -306,7 +306,7 @@
         });
     }
 
-    // Zufalls-Song-Button Logik
+    // Zufalls-Song-Button Logik (Button ist immer sichtbar!)
     fetch(csvUrl)
       .then(res => res.text())
       .then(csvText => {
@@ -316,13 +316,22 @@
           const lust = parseInt(obj["Lust"], 10);
           return !isNaN(lust) && lust >= 5 && obj["Datensatznummer"];
         });
+        // Button bleibt immer sichtbar, aber ggf. deaktiviert, falls keine Songs gefunden (bei dir aber immer welche)
         if (filtered.length > 0) {
-          randomSongBtn.style.display = "block";
+          randomSongBtn.disabled = false;
           randomSongBtn.onclick = function() {
             const pick = filtered[Math.floor(Math.random() * filtered.length)];
             window.location.href = "song.html?id=" + encodeURIComponent(pick["Datensatznummer"]);
           };
+        } else {
+          // Sollte bei dir nicht eintreten:
+          randomSongBtn.disabled = true;
+          randomSongBtn.textContent = "Kein Song mit Lust ≥ 5 gefunden";
         }
+      })
+      .catch(() => {
+        randomSongBtn.disabled = true;
+        randomSongBtn.textContent = "Fehler beim Laden der Songliste";
       });
   </script>
 </body>
