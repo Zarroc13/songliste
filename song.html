@@ -99,11 +99,29 @@
       padding: 0 2px;
       border-radius: 3px;
     }
+    #random-song-btn {
+      display: none;
+      margin: 1rem auto;
+      background: #007acc;
+      color: #fff;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem 1.5rem;
+      font-size: 1.1rem;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.07);
+      transition: background 0.2s;
+    }
+    #random-song-btn:hover {
+      background: #005fa3;
+    }
     @media (max-width: 600px) {
       header { font-size: 1.2rem; }
       main { font-size: 0.95rem; padding: 0.5rem; }
       .backlink, .autoscroll-btn, .speed-btn, .reset-btn { font-size: 0.95rem; }
       .speed-display { font-size: 0.93rem; }
+      #random-song-btn { font-size: 1rem; }
     }
   </style>
 </head>
@@ -118,6 +136,7 @@
     <button id="reset-btn" class="reset-btn" title="Zurücksetzen auf Vorgabe">⟳</button>
   </div>
   <main id="song-text">Bitte warten...</main>
+  <button id="random-song-btn">🎲 Zufalls-Song mit Lust ≥ 5</button>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script>
     function highlightChords(text) {
@@ -142,6 +161,7 @@
     const speedPlusBtn = document.getElementById('speed-plus');
     const resetBtn = document.getElementById('reset-btn');
     const speedDisplay = document.getElementById('speed-display');
+    const randomSongBtn = document.getElementById('random-song-btn');
 
     let autoscrollActive = false;
     let autoscrollTimer = null;
@@ -231,12 +251,13 @@
     textEl.addEventListener('wheel', stopAutoscroll);
     textEl.addEventListener('touchmove', stopAutoscroll);
 
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
+
     if (!id) {
       titleEl.textContent = 'Keine Song-ID angegeben';
       textEl.textContent = 'Bitte gib in der URL eine ID an, z.B. ?id=1';
       controlsEl.style.display = 'none';
     } else {
-      const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR-FcZH5479jScVw7EiJZSYs9awnAUWoMEpKqnl1F1CY5TpjIAM4okD2ZVYwz4HoyJS7RItGz7u7pFP/pub?output=csv";
       fetch(csvUrl)
         .then(res => res.text())
         .then(csvText => {
@@ -284,6 +305,25 @@
           }
         });
     }
+
+    // Zufalls-Song-Button Logik
+    fetch(csvUrl)
+      .then(res => res.text())
+      .then(csvText => {
+        const result = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+        // Filtere Songs mit Lust >= 5 und gültiger Datensatznummer
+        const filtered = result.data.filter(obj => {
+          const lust = parseInt(obj["Lust"], 10);
+          return !isNaN(lust) && lust >= 5 && obj["Datensatznummer"];
+        });
+        if (filtered.length > 0) {
+          randomSongBtn.style.display = "block";
+          randomSongBtn.onclick = function() {
+            const pick = filtered[Math.floor(Math.random() * filtered.length)];
+            window.location.href = "song.html?id=" + encodeURIComponent(pick["Datensatznummer"]);
+          };
+        }
+      });
   </script>
 </body>
 </html>
