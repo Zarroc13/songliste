@@ -18,10 +18,9 @@ A|----------------|----------------|----------------|----------------|
 E|----------------|----------------|----------------|----------------|
 
 
-[Intro]
-
-[Em] [A][[G]D]
-
+[[Intro]
+ 
+Em   G   D   A   x4
 [Verse 1]
 
 I re[Em]membered black skies
@@ -47,8 +46,7 @@ The [G]distance in your [D]eye[Dsus4]s
 To [G]fill this hole
 Con[D]nect the space betw[A]een
 Let it [C]be enough to reach the truth that [D]lies
-Across this new div[Em]ide[A[G]][D]
-
+Across this new div[Em]ide[ G D A
 
 [Verse 2]
 
@@ -96,9 +94,9 @@ The [G]distance in your [D]eye[Dsus4]s
 To [G]fill this hole
 Con[D]nect the space betw[A]een
 Let it [C]be enough to reach the truth that [D]lies
-Across this new div[Em]ide[D[G]]
+Across this new div[Em]ide[[G]] D
 Page 3/4
-A[A]cross this new div[Em]ide[D[G]]
+A[A]cross this new div[Em]ide[[G]]D
 A[A]cross this new div[Em]ide
 
 
