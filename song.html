@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Songtext</title>
   <style>
+    html, body {
+      height: 100%;
+    }
     body {
       margin: 0;
       font-family: sans-serif;
@@ -43,7 +46,7 @@
       max-width: 700px;
       flex-wrap: wrap;
     }
-    .autoscroll-btn, .speed-btn, .reset-btn {
+    .autoscroll-btn, .speed-btn, .reset-btn, .fullscreen-btn {
       padding: 0.4rem 1.2rem;
       background: #ffc83d;
       color: #1f1f1f;
@@ -116,12 +119,40 @@
     #random-song-btn:hover {
       background: #005fa3;
     }
+
+    :fullscreen, :-webkit-full-screen {
+      height: 100%;
+    }
+    :fullscreen main, :-webkit-full-screen main,
+    body.is-fullscreen main {
+      max-width: none;
+      width: 100%;
+      height: calc(100vh - 0px);
+      margin: 0;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 2rem;
+      font-size: 1.15rem;
+    }
+
     @media (max-width: 600px) {
       header { font-size: 1.2rem; }
       main { font-size: 0.95rem; padding: 0.5rem; }
       .backlink, .autoscroll-btn, .speed-btn, .reset-btn { font-size: 0.95rem; }
       .speed-display { font-size: 0.93rem; }
       #random-song-btn { font-size: 1rem; }
+    }
+
+    .fullscreen-btn {
+      background: #eee;
+      color: #444;
+      padding: 0.3rem 0.7rem;
+      min-width: 2.2rem;
+      box-shadow: none;
+    }
+    .fullscreen-btn.active {
+      background: #ffe398;
+      color: #007acc;
     }
   </style>
 </head>
@@ -134,6 +165,7 @@
     <span id="speed-display" class="speed-display"></span>
     <button id="speed-plus" class="speed-btn" title="schneller">+</button>
     <button id="reset-btn" class="reset-btn" title="Zurücksetzen auf Vorgabe">⟳</button>
+    <button id="fullscreen-btn" class="fullscreen-btn" title="Vollbild">⛶</button>
   </div>
   <main id="song-text">Bitte warten...</main>
   <button id="random-song-btn">Nächster Zufallssong</button>
@@ -162,19 +194,18 @@
     const resetBtn = document.getElementById('reset-btn');
     const speedDisplay = document.getElementById('speed-display');
     const randomSongBtn = document.getElementById('random-song-btn');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
 
     let autoscrollActive = false;
     let autoscrollTimer = null;
-    let defaultSpeedValue = 3; // Startwert, kann aus Sheet kommen
-    let speedValue = 3; // aktuell (1-10)
-    let scrollSpeed = 1; // px/frame, berechnet aus speedValue
-    let scrollDelay = 100; // ms, berechnet aus speedValue
+    let defaultSpeedValue = 3;
+    let speedValue = 3;
+    let scrollSpeed = 1;
+    let scrollDelay = 100;
 
-    let currentSongFromSheet = null; // Songdaten aus Sheet für Titel/Interpret
+    let currentSongFromSheet = null;
 
-    // Schrittweite und Delay je nach Stufe (1-10) – Werte ggf. anpassen!
     function computeScrollSettings(val) {
-      // Skalen für Mobil und Desktop getrennt
       let stepMin, stepMax, delayMin, delayMax;
       if (isMobile()) {
         stepMin = 0.2; stepMax = 3.0;
@@ -183,7 +214,6 @@
         stepMin = 0.2; stepMax = 6.0;
         delayMin = 30; delayMax = 300;
       }
-      // Linear interpolieren
       let t = (val - 1) / 9;
       let step = stepMin + t * (stepMax - stepMin);
       let delay = delayMax - t * (delayMax - delayMin);
@@ -225,11 +255,37 @@
       autoscrollTimer = null;
     }
 
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen?.().catch(() => {});
+      } else {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+      if (document.fullscreenElement) {
+        fullscreenBtn.classList.add('active');
+        fullscreenBtn.textContent = 'Vollbild beenden';
+        document.body.classList.add('is-fullscreen');
+      } else {
+        fullscreenBtn.classList.remove('active');
+        fullscreenBtn.textContent = '⛶';
+        document.body.classList.remove('is-fullscreen');
+      }
+    });
+
     autoscrollBtn.addEventListener('click', () => {
       if (autoscrollActive) {
         stopAutoscroll();
       } else {
-        startAutoscroll();
+        if (!isMobile() && !document.fullscreenElement) {
+          document.documentElement.requestFullscreen?.()
+            .then(() => startAutoscroll())
+            .catch(() => startAutoscroll());
+        } else {
+          startAutoscroll();
+        }
       }
     });
 
@@ -250,6 +306,8 @@
       updateSpeedDisplay();
     });
 
+    fullscreenBtn.addEventListener('click', toggleFullscreen);
+
     textEl.addEventListener('wheel', stopAutoscroll);
     textEl.addEventListener('touchmove', stopAutoscroll);
 
@@ -264,7 +322,6 @@
         .then(res => res.text())
         .then(csvText => {
           const result = Papa.parse(csvText, { header: true, skipEmptyLines: true });
-          // Flexible Spaltennamen-Findung (wegen evtl. Leerzeichen)
           const song = result.data.find(obj => (obj["Datensatznummer"] || "").trim() === id);
           currentSongFromSheet = song;
           if (song && song["AutoscrollSpeed"]) {
@@ -289,9 +346,7 @@
         })
         .then(text => {
           if (!text) return;
-          // Titel und Interpret aus der Tabelle:
           if (currentSongFromSheet) {
-            // Flexible Spaltennamen-Findung (wegen evtl. Leerzeichen)
             const songKey = Object.keys(currentSongFromSheet).find(k => k.trim().toLowerCase() === "song");
             const interpretKey = Object.keys(currentSongFromSheet).find(k => k.trim().toLowerCase() === "interpret");
             let header = currentSongFromSheet[songKey] || "";
@@ -302,6 +357,9 @@
           }
           textEl.innerHTML = highlightChords(text.trim());
           controlsEl.style.display = 'flex';
+          if (isMobile()) {
+            fullscreenBtn.style.display = 'none';
+          }
         })
         .catch(err => {
           if (err !== 'redirect') {
@@ -312,26 +370,22 @@
         });
     }
 
-    // Gewichtete Zufallsauswahl für Songs mit Lust >= 4
     fetch(csvUrl)
       .then(res => res.text())
       .then(csvText => {
         const result = Papa.parse(csvText, { header: true, skipEmptyLines: true });
-        // Flexible Spaltennamen-Findung (wegen evtl. Leerzeichen)
         const lustKey = Object.keys(result.data[0]).find(k => k.trim().toLowerCase() === "lust");
         const idKey = Object.keys(result.data[0]).find(k => k.trim().toLowerCase() === "datensatznummer");
 
-        // Filtere Songs mit Lust >= 4 und gültiger Datensatznummer
         const filtered = result.data.filter(obj => {
           const lust = parseInt(obj[lustKey], 10);
           return !isNaN(lust) && lust >= 4 && obj[idKey];
         });
 
-        // Erzeuge gewichtetes Array: 7 fast dreimal so wahrscheinlich wie 4
         let weighted = [];
         filtered.forEach(song => {
           const lust = parseInt(song[lustKey], 10);
-          let weight = Math.round((lust - 3) * 2.5); // 4->3, 5->5, 6->8, 7->10
+          let weight = Math.round((lust - 3) * 2.5);
           for(let i=0; i<weight; i++) weighted.push(song);
         });
 
